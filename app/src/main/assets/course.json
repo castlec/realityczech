@@ -1,0 +1,159 @@
+{
+  "title": "Reality Czech",
+  "description": "A practical path into Czech through real language, short explanations, and immediate practice.",
+  "sourceUrl": "https://realityczech.org/",
+  "license": "Adapted curriculum content is attributed to Reality Czech and distributed under CC BY-SA where that license applies. Third-party media retains its original license.",
+  "units": [
+    {
+      "id": "unit-1",
+      "title": "Unit 1 — First Czech",
+      "description": "Pronunciation, greetings, noun gender, být, and numbers.",
+      "lessons": [
+        {
+          "id": "u1-sounds",
+          "title": "Sounds and spelling",
+          "summary": "Learn the most important relationships between Czech spelling and pronunciation.",
+          "estimatedMinutes": 10,
+          "objectives": ["Recognize long vowels", "Distinguish c, č, s, and š", "Read simple Czech words aloud"],
+          "sections": [
+            {
+              "heading": "Long vowels",
+              "body": "An acute accent usually marks a long vowel. Length can distinguish words, so do not treat the accent as decoration.",
+              "examples": ["a / á", "i / í", "u / ú / ů"]
+            },
+            {
+              "heading": "Useful consonants",
+              "body": "Czech spelling is comparatively regular. Learn each marked consonant as its own sound.",
+              "examples": ["c ≈ ts in cats", "č ≈ ch in church", "š ≈ sh in shoe", "ž ≈ s in vision"]
+            }
+          ],
+          "vocabulary": [
+            {"czech": "Česko", "english": "Czechia", "note": "Č begins with a ch-like sound."},
+            {"czech": "škola", "english": "school", "note": "Š sounds like English sh."},
+            {"czech": "dům", "english": "house", "note": "Ů is a long u sound."}
+          ],
+          "quiz": [
+            {"prompt": "Which letter sounds most like English sh?", "choices": ["c", "č", "š", "ž"], "correctIndex": 2, "explanation": "Š represents the sh sound."}
+          ],
+          "sourceUrl": "https://realityczech.org/"
+        },
+        {
+          "id": "u1-greetings",
+          "title": "Greetings and introductions",
+          "summary": "Use simple greetings and say who you are.",
+          "estimatedMinutes": 12,
+          "objectives": ["Choose an informal or formal greeting", "Say your name", "Ask another person’s name"],
+          "sections": [
+            {
+              "heading": "Hello",
+              "body": "Ahoj is informal. Dobrý den is the dependable formal or neutral greeting used with strangers and in shops or offices.",
+              "examples": ["Ahoj!", "Dobrý den."]
+            },
+            {
+              "heading": "Names",
+              "body": "Jmenuju se… is a common spoken way to say your name. Jak se jmenujete? is the polite question.",
+              "examples": ["Jmenuju se Chris.", "Jak se jmenujete?"]
+            }
+          ],
+          "vocabulary": [
+            {"czech": "ahoj", "english": "hi / bye", "note": "Informal."},
+            {"czech": "dobrý den", "english": "hello / good day", "note": "Formal or neutral."},
+            {"czech": "na shledanou", "english": "goodbye", "note": "Formal or neutral."},
+            {"czech": "děkuju", "english": "thank you", "note": "Common spoken form."}
+          ],
+          "quiz": [
+            {"prompt": "What is the safest greeting when entering an office?", "choices": ["Ahoj", "Dobrý den", "Čau", "Dobrou noc"], "correctIndex": 1, "explanation": "Dobrý den is appropriate in formal and neutral daytime situations."}
+          ],
+          "sourceUrl": "https://realityczech.org/"
+        },
+        {
+          "id": "u1-gender",
+          "title": "Nouns and gender",
+          "summary": "Recognize the three grammatical genders and begin learning nouns with useful cues.",
+          "estimatedMinutes": 14,
+          "objectives": ["Name the three Czech genders", "Use common noun endings as clues", "Avoid treating gender as biological sex"],
+          "sections": [
+            {
+              "heading": "Three genders",
+              "body": "Czech nouns are masculine, feminine, or neuter. Gender controls agreement and later affects case endings.",
+              "examples": ["ten dům — that house (masculine)", "ta škola — that school (feminine)", "to auto — that car (neuter)"]
+            },
+            {
+              "heading": "Useful clues",
+              "body": "Many feminine nouns end in -a and many neuter nouns end in -o or -e. Masculine nouns often end in a consonant, but exceptions are normal.",
+              "examples": ["škola → feminine", "město → neuter", "telefon → masculine"]
+            }
+          ],
+          "vocabulary": [
+            {"czech": "ten", "english": "that / the", "note": "Masculine demonstrative."},
+            {"czech": "ta", "english": "that / the", "note": "Feminine demonstrative."},
+            {"czech": "to", "english": "that / the", "note": "Neuter demonstrative."}
+          ],
+          "quiz": [
+            {"prompt": "Which gender is auto?", "choices": ["Masculine", "Feminine", "Neuter"], "correctIndex": 2, "explanation": "Auto ends in -o and is neuter: to auto."}
+          ],
+          "sourceUrl": "https://realityczech.org/"
+        },
+        {
+          "id": "u1-byt",
+          "title": "The verb být",
+          "summary": "Use the present tense of být, the Czech verb ‘to be.’",
+          "estimatedMinutes": 15,
+          "objectives": ["Recognize present-tense forms of být", "Make simple identity statements", "Understand subject omission"],
+          "sections": [
+            {
+              "heading": "Present tense",
+              "body": "Czech verbs identify the person, so subject pronouns are often omitted unless they are emphasized or contrasted.",
+              "examples": ["(já) jsem — I am", "(ty) jsi — you are", "on/ona/ono je — he/she/it is", "(my) jsme — we are", "(vy) jste — you are", "oni jsou — they are"]
+            },
+            {
+              "heading": "Simple statements",
+              "body": "Use být to identify people and things or describe their basic state.",
+              "examples": ["Jsem Američan.", "To je škola.", "Jsme doma."]
+            }
+          ],
+          "vocabulary": [
+            {"czech": "jsem", "english": "I am", "note": "First-person singular."},
+            {"czech": "jsi", "english": "you are", "note": "Informal singular."},
+            {"czech": "je", "english": "is", "note": "Third-person singular."},
+            {"czech": "jsme", "english": "we are", "note": "First-person plural."},
+            {"czech": "jste", "english": "you are", "note": "Plural or formal."},
+            {"czech": "jsou", "english": "they are", "note": "Third-person plural."}
+          ],
+          "quiz": [
+            {"prompt": "Complete: My ___ doma.", "choices": ["jsem", "jsi", "jsme", "jsou"], "correctIndex": 2, "explanation": "My means we, so the form is jsme."}
+          ],
+          "sourceUrl": "https://realityczech.org/"
+        },
+        {
+          "id": "u1-numbers",
+          "title": "Numbers 0–20",
+          "summary": "Build the number vocabulary needed for prices, ages, addresses, and telephone numbers.",
+          "estimatedMinutes": 12,
+          "objectives": ["Count from zero to twenty", "Recognize common number forms", "Read short strings of digits"],
+          "sections": [
+            {
+              "heading": "Core numbers",
+              "body": "Learn numbers in small groups and say them aloud. Czech telephone numbers are commonly read in grouped chunks rather than as one large number.",
+              "examples": ["0 nula, 1 jedna, 2 dva, 3 tři, 4 čtyři, 5 pět", "6 šest, 7 sedm, 8 osm, 9 devět, 10 deset", "11 jedenáct … 20 dvacet"]
+            }
+          ],
+          "vocabulary": [
+            {"czech": "nula", "english": "zero"},
+            {"czech": "jedna", "english": "one"},
+            {"czech": "dva", "english": "two"},
+            {"czech": "tři", "english": "three"},
+            {"czech": "čtyři", "english": "four"},
+            {"czech": "pět", "english": "five"},
+            {"czech": "deset", "english": "ten"},
+            {"czech": "dvacet", "english": "twenty"}
+          ],
+          "quiz": [
+            {"prompt": "What number is tři?", "choices": ["2", "3", "4", "5"], "correctIndex": 1, "explanation": "Tři means three."}
+          ],
+          "sourceUrl": "https://realityczech.org/"
+        }
+      ]
+    }
+  ]
+}
