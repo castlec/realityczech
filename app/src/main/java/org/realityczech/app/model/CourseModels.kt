@@ -77,6 +77,8 @@ data class TranscriptLine(
     val czech: String,
     val english: String = "",
     val note: String = "",
+    val mediaId: String = "",
+    val startSeconds: Int? = null,
 )
 
 @Serializable
@@ -85,7 +87,16 @@ data class LearningResource(
     val kind: String,
     val url: String,
     val note: String = "",
-)
+    val provider: String = "",
+    val mediaId: String = "",
+) {
+    val isEmbeddedVideo: Boolean
+        get() = provider == YOUTUBE_PROVIDER && mediaId.isNotBlank()
+
+    companion object {
+        const val YOUTUBE_PROVIDER = "youtube"
+    }
+}
 
 @Serializable
 data class Exercise(
