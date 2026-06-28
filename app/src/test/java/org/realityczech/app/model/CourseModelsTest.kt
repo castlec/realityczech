@@ -3,6 +3,8 @@ package org.realityczech.app.model
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 
@@ -57,5 +59,24 @@ class CourseModelsTest {
         )
         assertEquals("Test", index.title)
         assertEquals(listOf("lesson.json"), index.units.single().lessonFiles)
+    }
+
+    @Test
+    fun youtubeResourceIsRecognizedAsEmbeddedVideo() {
+        val video = LearningResource(
+            title = "Interview",
+            kind = "video",
+            url = "https://example.com/video",
+            provider = "youtube",
+            mediaId = "Xopqb_Az90Q",
+        )
+        val lessonPage = LearningResource(
+            title = "Lesson",
+            kind = "web",
+            url = "https://example.com/lesson",
+        )
+
+        assertTrue(video.isEmbeddedVideo)
+        assertFalse(lessonPage.isEmbeddedVideo)
     }
 }
