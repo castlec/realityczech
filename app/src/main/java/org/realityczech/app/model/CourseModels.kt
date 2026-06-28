@@ -3,6 +3,23 @@ package org.realityczech.app.model
 import kotlinx.serialization.Serializable
 
 @Serializable
+data class CourseIndex(
+    val title: String,
+    val description: String,
+    val sourceUrl: String,
+    val license: String,
+    val units: List<CourseUnitIndex>,
+)
+
+@Serializable
+data class CourseUnitIndex(
+    val id: String,
+    val title: String,
+    val description: String,
+    val lessonFiles: List<String>,
+)
+
+@Serializable
 data class Course(
     val title: String,
     val description: String,
