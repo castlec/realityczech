@@ -8,13 +8,14 @@ import org.junit.Test
 
 class CourseModelsTest {
     @Test
-    fun quizQuestionRejectsInvalidCorrectIndex() {
+    fun multipleChoiceRejectsInvalidCorrectIndex() {
         try {
-            QuizQuestion(
+            Exercise(
+                type = Exercise.MULTIPLE_CHOICE,
                 prompt = "Test",
                 choices = listOf("A"),
                 correctIndex = 2,
-                explanation = "",
+                explanation = "Explanation",
             )
             fail("Expected an IllegalArgumentException")
         } catch (_: IllegalArgumentException) {
@@ -23,19 +24,38 @@ class CourseModelsTest {
     }
 
     @Test
-    fun courseDecodesFromJson() {
-        val course = Json.decodeFromString<Course>(
+    fun textEntryRequiresAcceptedAnswers() {
+        try {
+            Exercise(
+                type = Exercise.TEXT_ENTRY,
+                prompt = "Test",
+                explanation = "Explanation",
+            )
+            fail("Expected an IllegalArgumentException")
+        } catch (_: IllegalArgumentException) {
+            // Expected.
+        }
+    }
+
+    @Test
+    fun courseIndexDecodesFromJson() {
+        val index = Json.decodeFromString<CourseIndex>(
             """
             {
               "title":"Test",
               "description":"Description",
               "sourceUrl":"https://example.com",
               "license":"CC BY-SA",
-              "units":[]
+              "units":[{
+                "id":"unit-1",
+                "title":"Unit 1",
+                "description":"Description",
+                "lessonFiles":["lesson.json"]
+              }]
             }
             """.trimIndent(),
         )
-        assertEquals("Test", course.title)
-        assertEquals(0, course.lessons.size)
+        assertEquals("Test", index.title)
+        assertEquals(listOf("lesson.json"), index.units.single().lessonFiles)
     }
 }
