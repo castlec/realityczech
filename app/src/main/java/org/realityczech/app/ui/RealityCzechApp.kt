@@ -47,9 +47,7 @@ import androidx.compose.ui.unit.dp
 import org.realityczech.app.data.ProgressStore
 import org.realityczech.app.model.Course
 import org.realityczech.app.model.Exercise
-import org.realityczech.app.model.LearningResource
 import org.realityczech.app.model.Lesson
-import org.realityczech.app.model.TranscriptLine
 import org.realityczech.app.model.VocabularyItem
 
 private enum class MainSection(val label: String) {
@@ -201,9 +199,11 @@ private fun LessonScreen(
         Text("Learning objectives", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         lesson.objectives.forEach { Text("• $it") }
 
-        if (lesson.resources.isNotEmpty()) {
-            Text("Original media and sources", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            lesson.resources.forEach { resource -> ResourceCard(resource) }
+        if (lesson.resources.isNotEmpty() || lesson.transcript.isNotEmpty()) {
+            LessonMediaSection(
+                resources = lesson.resources,
+                transcript = lesson.transcript,
+            )
         }
 
         lesson.sections.forEach { section ->
@@ -216,11 +216,6 @@ private fun LessonScreen(
                     }
                 }
             }
-        }
-
-        if (lesson.transcript.isNotEmpty()) {
-            Text("Transcript", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            lesson.transcript.forEach { line -> TranscriptRow(line) }
         }
 
         if (lesson.vocabulary.isNotEmpty()) {
@@ -245,30 +240,6 @@ private fun LessonScreen(
             }
         }
         Spacer(Modifier.height(20.dp))
-    }
-}
-
-@Composable
-private fun ResourceCard(resource: LearningResource) {
-    val uriHandler = LocalUriHandler.current
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(resource.title, fontWeight = FontWeight.Bold)
-            Text(resource.kind, style = MaterialTheme.typography.labelMedium)
-            if (resource.note.isNotBlank()) Text(resource.note, style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = { uriHandler.openUri(resource.url) }) { Text("Open") }
-        }
-    }
-}
-
-@Composable
-private fun TranscriptRow(line: TranscriptLine) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        if (line.speaker.isNotBlank()) Text(line.speaker, style = MaterialTheme.typography.labelMedium)
-        Text(line.czech, fontWeight = FontWeight.Bold)
-        if (line.english.isNotBlank()) Text(line.english)
-        if (line.note.isNotBlank()) Text(line.note, style = MaterialTheme.typography.bodySmall)
-        HorizontalDivider(Modifier.padding(top = 6.dp))
     }
 }
 
@@ -414,10 +385,10 @@ private fun AboutScreen(course: Course) {
     ) {
         Text("About this app", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text("This is an independent, offline-first Android adaptation of the Reality Czech open educational curriculum.")
-        Text("Current status: the original Unit 1 sequence is being converted in instructional blocks. Days 1.1–1.3 are included in this build.")
+        Text("Current status: Unit 1 days 1.1–1.3 are included, with original interview videos now available inside relevant lessons.")
         Text("Content license", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(course.license)
         Button(onClick = { uriHandler.openUri(course.sourceUrl) }) { Text("Open Reality Czech") }
-        Text("Reality Czech and its original creators are not responsible for this application. Third-party media remains linked to its original host and license.")
+        Text("Reality Czech and its original creators are not responsible for this application. Third-party media remains streamed from its original provider and retains its original terms and attribution.")
     }
 }

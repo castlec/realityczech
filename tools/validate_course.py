@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from urllib.parse import urlparse
@@ -13,6 +14,7 @@ COURSE_DIR = ROOT / "app/src/main/assets/course"
 INDEX_FILE = COURSE_DIR / "index.json"
 LESSON_DIR = COURSE_DIR / "lessons"
 SUPPORTED_EXERCISES = {"multiple_choice", "text_entry"}
+YOUTUBE_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
 
 
 def fail(message: str) -> None:
@@ -47,6 +49,7 @@ def main() -> None:
     lesson_files_seen: set[str] = set()
     lesson_count = 0
     exercise_count = 0
+    embedded_video_count = 0
 
     for unit in units:
         unit_id = unit.get("id")
@@ -81,9 +84,29 @@ def main() -> None:
             if not lesson.get("contentLicense"):
                 fail(f"lesson {lesson_id!r} is missing contentLicense")
 
+            media_ids: set[str] = set()
             for resource in lesson.get("resources", []):
                 if not resource.get("title") or not valid_url(resource.get("url")):
                     fail(f"lesson {lesson_id!r} has an invalid resource")
+                provider = resource.get("provider", "")
+                media_id = resource.get("mediaId", "")
+                if provider or media_id:
+                    if provider != "youtube":
+                        fail(f"lesson {lesson_id!r} has unsupported media provider {provider!r}")
+                    if not isinstance(media_id, str) or not YOUTUBE_ID.fullmatch(media_id):
+                        fail(f"lesson {lesson_id!r} has invalid YouTube mediaId {media_id!r}")
+                    if media_id in media_ids:
+                        fail(f"lesson {lesson_id!r} repeats mediaId {media_id!r}")
+                    media_ids.add(media_id)
+                    embedded_video_count += 1
+
+            for line in lesson.get("transcript", []):
+                media_id = line.get("mediaId", "")
+                if media_id and media_id not in media_ids:
+                    fail(f"lesson {lesson_id!r} transcript references unknown mediaId {media_id!r}")
+                start_seconds = line.get("startSeconds")
+                if start_seconds is not None and (not isinstance(start_seconds, int) or start_seconds < 0):
+                    fail(f"lesson {lesson_id!r} has invalid transcript startSeconds")
 
             for exercise in lesson.get("exercises", []):
                 exercise_count += 1
@@ -108,7 +131,7 @@ def main() -> None:
 
     print(
         f"validated {len(unit_ids)} unit(s), {lesson_count} lesson(s), "
-        f"and {exercise_count} exercise(s)"
+        f"{exercise_count} exercise(s), and {embedded_video_count} embedded video(s)"
     )
 
 
