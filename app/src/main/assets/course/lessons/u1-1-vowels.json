@@ -1,0 +1,30 @@
+{
+  "id": "u1-1-vowels",
+  "day": "1.1 — 1. den",
+  "title": "Czech vowels, length, and stress",
+  "summary": "Build a reliable pronunciation foundation: five basic vowel qualities, short–long contrast, common vowel pairs, and first-syllable stress.",
+  "estimatedMinutes": 16,
+  "objectives": ["Read a, e, i/y, o, and u consistently", "Recognize long vowels marked with čárka or kroužek", "Place stress on the first syllable"],
+  "sections": [
+    {"heading": "Five basic vowel qualities", "body": "Czech spelling is much more predictable than English spelling. The letters i and y represent the same vowel sound, although they affect surrounding consonants differently in later lessons.", "examples": ["a: mapa, vlak", "e: pes, televize", "i/y: mobil, byt", "o: okno, pivo", "u: tužka, učitel"]},
+    {"heading": "Short and long vowels", "body": "Vowel length is meaningful. Long vowels are normally written with an acute accent; ů is another spelling of long u. Hold a long vowel roughly twice as long as the corresponding short vowel.", "examples": ["byt — apartment / být — to be", "mapa / otázka", "u: úkol, ů: stůl"]},
+    {"heading": "Vowel pairs and stress", "body": "Common written pairs combine predictably. Czech word stress normally falls on the first syllable, even when a word is long.", "examples": ["au: auto", "ou: houba", "aj: čaj", "ej: kolej", "STU-dent, TE-le-vi-ze"]}
+  ],
+  "vocabulary": [
+    {"czech": "mapa", "english": "map", "note": "Short a."},
+    {"czech": "byt", "english": "apartment", "note": "Short y; contrast with být."},
+    {"czech": "být", "english": "to be", "note": "Long ý."},
+    {"czech": "stůl", "english": "table", "note": "Long ů."},
+    {"czech": "čaj", "english": "tea", "note": "The pair aj."},
+    {"czech": "kolej", "english": "dormitory", "note": "The pair ej."}
+  ],
+  "resources": [{"title": "Original lesson: Czech Vowels", "kind": "Reality Czech lesson", "url": "https://realityczech.org/czech-vowels/", "note": "Includes the original examples and image attributions."}],
+  "exercises": [
+    {"type": "multiple_choice", "prompt": "Which word contains a long vowel?", "choices": ["byt", "být", "pes", "vlak"], "correctIndex": 1, "explanation": "The acute accent in ý marks a long vowel."},
+    {"type": "text_entry", "prompt": "Type the Czech word for “tea.”", "acceptedAnswers": ["čaj"], "explanation": "The word is čaj."},
+    {"type": "multiple_choice", "prompt": "Where does normal Czech word stress fall?", "choices": ["Last syllable", "First syllable", "Any syllable", "Only on long vowels"], "correctIndex": 1, "explanation": "Czech normally stresses the first syllable."}
+  ],
+  "sourceUrl": "https://realityczech.org/czech-vowels/",
+  "sourceAttribution": "Reality Czech, Christian Hilchey, COERLL",
+  "contentLicense": "CC BY-SA"
+}

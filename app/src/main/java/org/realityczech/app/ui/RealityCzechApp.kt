@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -45,8 +46,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import org.realityczech.app.data.ProgressStore
 import org.realityczech.app.model.Course
+import org.realityczech.app.model.Exercise
+import org.realityczech.app.model.LearningResource
 import org.realityczech.app.model.Lesson
-import org.realityczech.app.model.QuizQuestion
+import org.realityczech.app.model.TranscriptLine
 import org.realityczech.app.model.VocabularyItem
 
 private enum class MainSection(val label: String) {
@@ -106,7 +109,7 @@ fun RealityCzechApp(course: Course, progressStore: ProgressStore) {
             } else {
                 when (section) {
                     MainSection.LEARN -> LearnScreen(course, completion, onLessonSelected = { selectedLesson = it })
-                    MainSection.REVIEW -> ReviewScreen(course.lessons.flatMap { it.vocabulary })
+                    MainSection.REVIEW -> ReviewScreen(course.lessons.flatMap { it.vocabulary }.distinctBy { it.czech })
                     MainSection.ABOUT -> AboutScreen(course)
                 }
             }
@@ -143,12 +146,18 @@ private fun LearnScreen(
                 Text(unit.title, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(unit.description, style = MaterialTheme.typography.bodyMedium)
             }
-            items(unit.lessons, key = { it.id }) { lesson ->
-                LessonCard(
-                    lesson = lesson,
-                    complete = completion[lesson.id] == true,
-                    onClick = { onLessonSelected(lesson) },
-                )
+
+            unit.lessons.groupBy { it.day }.forEach { (day, lessons) ->
+                item {
+                    Text(day, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+                items(lessons, key = { it.id }) { lesson ->
+                    LessonCard(
+                        lesson = lesson,
+                        complete = completion[lesson.id] == true,
+                        onClick = { onLessonSelected(lesson) },
+                    )
+                }
             }
         }
     }
@@ -181,13 +190,21 @@ private fun LessonScreen(
     completed: Boolean,
     onCompletedChange: (Boolean) -> Unit,
 ) {
+    val uriHandler = LocalUriHandler.current
+
     Column(
         modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        Text(lesson.day, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         Text(lesson.summary, style = MaterialTheme.typography.bodyLarge)
         Text("Learning objectives", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         lesson.objectives.forEach { Text("• $it") }
+
+        if (lesson.resources.isNotEmpty()) {
+            Text("Original media and sources", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            lesson.resources.forEach { resource -> ResourceCard(resource) }
+        }
 
         lesson.sections.forEach { section ->
             Surface(tonalElevation = 2.dp, shape = MaterialTheme.shapes.medium) {
@@ -201,21 +218,57 @@ private fun LessonScreen(
             }
         }
 
+        if (lesson.transcript.isNotEmpty()) {
+            Text("Transcript", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            lesson.transcript.forEach { line -> TranscriptRow(line) }
+        }
+
         if (lesson.vocabulary.isNotEmpty()) {
             Text("Vocabulary", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             lesson.vocabulary.forEach { item -> VocabularyRow(item) }
         }
 
-        if (lesson.quiz.isNotEmpty()) {
-            Text("Check your understanding", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            lesson.quiz.forEachIndexed { index, question -> QuizCard(index + 1, question) }
+        if (lesson.exercises.isNotEmpty()) {
+            Text("Practice", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            lesson.exercises.forEachIndexed { index, exercise -> ExerciseCard(index + 1, exercise) }
         }
 
         Button(onClick = { onCompletedChange(!completed) }, modifier = Modifier.fillMaxWidth()) {
             Text(if (completed) "Mark incomplete" else "Mark lesson complete")
         }
-        Text("Adapted from Reality Czech. Source: ${lesson.sourceUrl}", style = MaterialTheme.typography.bodySmall)
+
+        Surface(tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium) {
+            Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("Source and license", fontWeight = FontWeight.Bold)
+                Text("Adapted from ${lesson.sourceAttribution}; ${lesson.contentLicense}.")
+                TextButton(onClick = { uriHandler.openUri(lesson.sourceUrl) }) { Text("Open original lesson") }
+            }
+        }
         Spacer(Modifier.height(20.dp))
+    }
+}
+
+@Composable
+private fun ResourceCard(resource: LearningResource) {
+    val uriHandler = LocalUriHandler.current
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(resource.title, fontWeight = FontWeight.Bold)
+            Text(resource.kind, style = MaterialTheme.typography.labelMedium)
+            if (resource.note.isNotBlank()) Text(resource.note, style = MaterialTheme.typography.bodySmall)
+            TextButton(onClick = { uriHandler.openUri(resource.url) }) { Text("Open") }
+        }
+    }
+}
+
+@Composable
+private fun TranscriptRow(line: TranscriptLine) {
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        if (line.speaker.isNotBlank()) Text(line.speaker, style = MaterialTheme.typography.labelMedium)
+        Text(line.czech, fontWeight = FontWeight.Bold)
+        if (line.english.isNotBlank()) Text(line.english)
+        if (line.note.isNotBlank()) Text(line.note, style = MaterialTheme.typography.bodySmall)
+        HorizontalDivider(Modifier.padding(top = 6.dp))
     }
 }
 
@@ -232,14 +285,22 @@ private fun VocabularyRow(item: VocabularyItem) {
 }
 
 @Composable
-private fun QuizCard(number: Int, question: QuizQuestion) {
-    var selected by remember(question.prompt) { mutableIntStateOf(-1) }
+private fun ExerciseCard(number: Int, exercise: Exercise) {
+    when (exercise.type) {
+        Exercise.MULTIPLE_CHOICE -> MultipleChoiceExercise(number, exercise)
+        Exercise.TEXT_ENTRY -> TextEntryExercise(number, exercise)
+    }
+}
+
+@Composable
+private fun MultipleChoiceExercise(number: Int, exercise: Exercise) {
+    var selected by remember(exercise.prompt) { mutableIntStateOf(-1) }
     val answered = selected >= 0
 
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("$number. ${question.prompt}", fontWeight = FontWeight.Bold)
-            question.choices.forEachIndexed { index, choice ->
+            Text("$number. ${exercise.prompt}", fontWeight = FontWeight.Bold)
+            exercise.choices.forEachIndexed { index, choice ->
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { selected = index },
                     verticalAlignment = Alignment.CenterVertically,
@@ -249,15 +310,52 @@ private fun QuizCard(number: Int, question: QuizQuestion) {
                 }
             }
             if (answered) {
-                val correct = selected == question.correctIndex
-                Text(
-                    if (correct) "Correct. ${question.explanation}" else "Try again. ${question.explanation}",
-                    color = if (correct) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                )
+                val correct = selected == exercise.correctIndex
+                ExerciseFeedback(correct, exercise.explanation)
             }
         }
     }
 }
+
+@Composable
+private fun TextEntryExercise(number: Int, exercise: Exercise) {
+    var answer by remember(exercise.prompt) { mutableStateOf("") }
+    var submitted by remember(exercise.prompt) { mutableStateOf(false) }
+    val accepted = exercise.acceptedAnswers.map(::normalizeAnswer).toSet()
+    val correct = normalizeAnswer(answer) in accepted
+
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("$number. ${exercise.prompt}", fontWeight = FontWeight.Bold)
+            OutlinedTextField(
+                value = answer,
+                onValueChange = {
+                    answer = it
+                    submitted = false
+                },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Your answer") },
+            )
+            Button(onClick = { submitted = true }, enabled = answer.isNotBlank()) { Text("Check") }
+            if (submitted) ExerciseFeedback(correct, exercise.explanation)
+        }
+    }
+}
+
+@Composable
+private fun ExerciseFeedback(correct: Boolean, explanation: String) {
+    Text(
+        if (correct) "Correct. $explanation" else "Not yet. $explanation",
+        color = if (correct) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+    )
+}
+
+private fun normalizeAnswer(value: String): String = value
+    .trim()
+    .lowercase()
+    .trimEnd('.', '!', '?')
+    .replace(Regex("\\s+"), " ")
 
 @Composable
 private fun ReviewScreen(vocabulary: List<VocabularyItem>) {
@@ -316,10 +414,10 @@ private fun AboutScreen(course: Course) {
     ) {
         Text("About this app", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text("This is an independent, offline-first Android adaptation of the Reality Czech open educational curriculum.")
-        Text("Current status: functional application scaffold with the first five introductory lessons. The public curriculum importer and full Units 1–10 conversion remain in development.")
+        Text("Current status: the original Unit 1 sequence is being converted in instructional blocks. Days 1.1–1.3 are included in this build.")
         Text("Content license", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(course.license)
         Button(onClick = { uriHandler.openUri(course.sourceUrl) }) { Text("Open Reality Czech") }
-        Text("Reality Czech and its original creators are not responsible for this application. Each imported media item must retain its own source and license metadata.")
+        Text("Reality Czech and its original creators are not responsible for this application. Third-party media remains linked to its original host and license.")
     }
 }
