@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import concurrent.futures
+import re
 import sys
 import urllib.parse
 from pathlib import Path
@@ -21,6 +22,7 @@ from .web import (
 )
 
 SEED = "https://realityczech.org/unit-1/"
+UNIT_ACTIVITY = re.compile(r"\b1\.(?:[1-9]|1[01])\b")
 
 
 def add_location(
@@ -67,14 +69,27 @@ def crawl_page(anchor: dict[str, str]) -> dict[str, Any]:
     return page
 
 
+def is_unit1_activity(item: dict[str, str]) -> bool:
+    label = item["label"]
+    host = urllib.parse.urlsplit(item["url"]).netloc
+    if UNIT_ACTIVITY.search(label):
+        return True
+    return host in {"docs.google.com", "drive.google.com"} and "unit 1" in label.lower()
+
+
 def collect(repository_root: Path, output_root: Path, workers: int = 8) -> dict[str, Any]:
     seed_result = fetch(SEED)
     seed = parse_html_page(SEED, seed_result.data)
     seed["attribution"] = source_attribution(seed)
-    toc = {item["url"]: item for item in seed["anchors"] if relevant_unit_link(item)}
+    toc = {
+        item["url"]: item
+        for item in seed["anchors"]
+        if relevant_unit_link(item) and is_unit1_activity(item)
+    }
 
     first_party = [
-        item for item in toc.values()
+        item
+        for item in toc.values()
         if urllib.parse.urlsplit(item["url"]).netloc in FIRST_PARTY_HOSTS
     ]
     external = [
