@@ -43,6 +43,9 @@ jobs:
       - name: Validate structured course content
         run: python3 tools/validate_course.py
 
+      - name: Validate integrated curriculum and media
+        run: python3 tools/validate_integrated_media.py
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
