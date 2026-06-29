@@ -11,6 +11,8 @@ import org.realityczech.app.model.Lesson
 import org.realityczech.app.model.MediaCatalog
 import org.realityczech.app.model.MediaCatalogAsset
 
+private const val LESSON_SECTION_PROVIDER = "lesson-section"
+
 class CourseRepository(private val context: Context) {
     private val json = Json {
         ignoreUnknownKeys = true
@@ -35,7 +37,6 @@ class CourseRepository(private val context: Context) {
                 },
             )
         }
-
         return Course(
             title = index.title,
             description = index.description,
@@ -86,7 +87,18 @@ class CourseRepository(private val context: Context) {
 
     private fun Lesson.withDocumentImages(assets: List<MediaCatalogAsset>): Lesson {
         if (assets.isEmpty()) return this
-        val generated = assets
+        val sectionResources = sections.mapIndexed { index, section ->
+            LearningResource(
+                title = section.heading,
+                kind = "lesson section",
+                url = sourceUrl,
+                note = section.body,
+                provider = LESSON_SECTION_PROVIDER,
+                fallbackText = section.examples.joinToString("\n"),
+                sourceOrder = index,
+            )
+        }
+        val imageResources = assets
             .sortedWith(
                 compareBy<MediaCatalogAsset> { it.sourceOrder ?: Int.MAX_VALUE }
                     .thenBy { it.label.lowercase() }
@@ -98,14 +110,13 @@ class CourseRepository(private val context: Context) {
                 } else {
                     ""
                 }
-                val note = listOf(asset.contextText, inheritedNote)
-                    .filter { it.isNotBlank() }
-                    .joinToString("\n")
                 LearningResource(
                     title = asset.label.ifBlank { "Source illustration" },
                     kind = "source document image",
                     url = asset.sourcePage.ifBlank { asset.sourceUrl },
-                    note = note,
+                    note = listOf(asset.contextText, inheritedNote)
+                        .filter { it.isNotBlank() }
+                        .joinToString("\n"),
                     provider = LearningResource.VENDOR_IMAGE_PROVIDER,
                     assetPath = "media/${asset.localPath}",
                     attribution = asset.attribution,
@@ -116,7 +127,10 @@ class CourseRepository(private val context: Context) {
                     sourceOrder = asset.sourceOrder,
                 )
             }
-        return copy(resources = resources + generated)
+        return copy(
+            sections = emptyList(),
+            resources = resources + sectionResources + imageResources,
+        )
     }
 
     private inline fun <reified T> readJson(path: String): T {
