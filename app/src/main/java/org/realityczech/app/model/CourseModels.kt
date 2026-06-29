@@ -92,6 +92,11 @@ data class LearningResource(
     val assetPath: String = "",
     val fallbackText: String = "",
     val attribution: String = "",
+    val semanticRole: String = "",
+    val placementHeading: String = "",
+    val caption: String = "",
+    val contextText: String = "",
+    val sourceOrder: Int? = null,
 ) {
     val isEmbeddedVideo: Boolean
         get() = provider == YOUTUBE_PROVIDER && mediaId.isNotBlank()
@@ -133,6 +138,11 @@ data class MediaCatalogAsset(
     val fallbackText: String = "",
     val provider: String = "",
     val attributionInherited: Boolean = false,
+    val semanticRole: String = "",
+    val placementHeading: String = "",
+    val caption: String = "",
+    val contextText: String = "",
+    val sourceOrder: Int? = null,
 ) {
     val applicableLessonIds: List<String>
         get() = lessonIds.ifEmpty { listOfNotNull(lessonId.takeIf(String::isNotBlank)) }
