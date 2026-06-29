@@ -1,5 +1,6 @@
 package org.realityczech.app.ui
 
+import android.media.MediaPlayer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -26,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -34,6 +37,7 @@ import org.realityczech.app.model.LearningResource
 import org.realityczech.app.model.TranscriptLine
 
 private const val PRONUNCIATION_IMAGE_KIND = "pronunciation image"
+private const val REALITY_CZECH_GDOC_PATH = "realityczech.org/wp-content/uploads/gdoc/"
 
 @Composable
 fun LessonMediaSection(
@@ -41,13 +45,18 @@ fun LessonMediaSection(
     transcript: List<TranscriptLine>,
 ) {
     val videos = resources.filter { it.isEmbeddedVideo }
+    val recordedAudio = resources.filter { it.isEmbeddedAudio }
     val pronunciationImages = resources.filter { it.kind == PRONUNCIATION_IMAGE_KIND }
     val otherResources = resources.filterNot {
-        it.isEmbeddedVideo || it.kind == PRONUNCIATION_IMAGE_KIND
+        it.isEmbeddedVideo || it.isEmbeddedAudio || it.kind == PRONUNCIATION_IMAGE_KIND
     }
 
     if (videos.isNotEmpty()) {
         EmbeddedVideoSection(videos = videos, transcript = transcript)
+    }
+
+    if (recordedAudio.isNotEmpty()) {
+        RecordedAudioSection(recordedAudio)
     }
 
     if (pronunciationImages.isNotEmpty()) {
@@ -65,18 +74,87 @@ fun LessonMediaSection(
 }
 
 @Composable
+private fun RecordedAudioSection(resources: List<LearningResource>) {
+    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+    var player by remember { mutableStateOf<MediaPlayer?>(null) }
+    var playbackError by remember { mutableStateOf<String?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            player?.stop()
+            player?.release()
+            player = null
+        }
+    }
+
+    fun play(resource: LearningResource) {
+        player?.stop()
+        player?.release()
+        player = null
+        playbackError = null
+
+        try {
+            val newPlayer = MediaPlayer()
+            context.assets.openFd(resource.assetPath).use { descriptor ->
+                newPlayer.setDataSource(
+                    descriptor.fileDescriptor,
+                    descriptor.startOffset,
+                    descriptor.length,
+                )
+            }
+            newPlayer.setOnCompletionListener { completed ->
+                completed.release()
+                if (player === completed) player = null
+            }
+            newPlayer.prepare()
+            newPlayer.start()
+            player = newPlayer
+        } catch (error: Exception) {
+            playbackError = error.message ?: "Unable to play the bundled recording."
+        }
+    }
+
+    Text("Real-speaker recordings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Text(
+        "These recordings are bundled from the sources declared in the media manifest. Device speech remains available as a fallback.",
+        style = MaterialTheme.typography.bodySmall,
+    )
+
+    resources.forEach { resource ->
+        Card(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(resource.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                if (resource.note.isNotBlank()) Text(resource.note)
+                Button(onClick = { play(resource) }) { Text("Play real speaker") }
+                val fallback = resource.fallbackText.ifBlank { resource.title }
+                Text("Synthesized fallback", style = MaterialTheme.typography.labelMedium)
+                CzechSpeakControls(text = fallback)
+                TextButton(onClick = { uriHandler.openUri(resource.url) }) {
+                    Text("Open original source")
+                }
+            }
+        }
+    }
+
+    playbackError?.let { error ->
+        Text("Recorded playback failed: $error", color = MaterialTheme.colorScheme.error)
+    }
+}
+
+@Composable
 private fun PronunciationGallery(resources: List<LearningResource>) {
     val speaker = LocalCzechSpeaker.current
 
     Text("See, listen, and repeat", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     Text(
-        "The pictures are streamed from the original Reality Czech lesson. Playback uses your device's Czech speech voice.",
+        "The pictures are bundled into this APK from the URLs declared in the media manifest. Playback uses your device's Czech speech voice when no matching human recording is available.",
         style = MaterialTheme.typography.bodySmall,
     )
 
     if (speaker.status == CzechSpeechStatus.UNAVAILABLE) {
         Text(
-            "No Czech speech voice is installed. The pictures remain available, but playback is disabled.",
+            "No Czech speech voice is installed. The pictures remain available, but synthesized playback is disabled.",
             color = MaterialTheme.colorScheme.error,
         )
     }
@@ -95,7 +173,7 @@ private fun PronunciationCard(resource: LearningResource) {
     Card(Modifier.width(220.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             AsyncImage(
-                model = resource.url,
+                model = bundledImageModel(resource),
                 contentDescription = resource.note.ifBlank { resource.title },
                 modifier = Modifier.fillMaxWidth().height(140.dp),
                 contentScale = ContentScale.Crop,
@@ -127,7 +205,7 @@ private fun ListenAndTypePractice(resources: List<LearningResource>) {
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             AsyncImage(
-                model = item.url,
+                model = bundledImageModel(item),
                 contentDescription = item.note.ifBlank { "Vocabulary image" },
                 modifier = Modifier.fillMaxWidth().height(180.dp),
                 contentScale = ContentScale.Fit,
@@ -287,6 +365,14 @@ private fun ExternalResourceCard(resource: LearningResource) {
             TextButton(onClick = { uriHandler.openUri(resource.url) }) { Text("Open") }
         }
     }
+}
+
+private fun bundledImageModel(resource: LearningResource): String {
+    if (resource.kind != PRONUNCIATION_IMAGE_KIND || !resource.url.contains(REALITY_CZECH_GDOC_PATH)) {
+        return resource.url
+    }
+    val fileName = resource.url.substringAfterLast('/').substringBefore('?')
+    return "file:///android_asset/media/images/$fileName"
 }
 
 private fun normalizeMediaAnswer(value: String): String = value
