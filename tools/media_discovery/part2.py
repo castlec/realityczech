@@ -6,7 +6,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Any
 
-from .archive import write_vendor_archive
+from .archive import vendor_assets_from_documents, write_vendor_archive
 from .unit1 import SEED
 from .web import FIRST_PARTY_HOSTS
 
@@ -27,14 +27,17 @@ def is_warning(item: dict[str, Any]) -> bool:
 def finalize(
     state: dict[str, Any],
     repository_root: Path,
-    archive_path: Path,
+    archive_path: Path | None,
     report_path: Path,
     unresolved_path: Path,
 ) -> dict[str, Any]:
     pages = state["pages"]
     documents = state["documents"]
     locations = state["locations"]
-    vendor_assets = write_vendor_archive(archive_path, repository_root, documents, SEED)
+    if archive_path is None:
+        vendor_assets = vendor_assets_from_documents(repository_root, documents)
+    else:
+        vendor_assets = write_vendor_archive(archive_path, repository_root, documents, SEED)
 
     warnings = [item for item in state["errors"] if is_warning(item)]
     unresolved: list[dict[str, Any]] = [
@@ -76,7 +79,7 @@ def finalize(
         "warnings": len(warnings),
         "unresolved": len(unresolved),
     }
-    report = {
+    report: dict[str, Any] = {
         "version": 1,
         "seed": SEED,
         "siteLicense": {
@@ -90,11 +93,13 @@ def finalize(
         "publishedDocuments": state.get("publishedDocuments", []),
         "documents": documents,
         "mediaLocations": sorted(locations.values(), key=lambda item: item["url"]),
-        "documentVendorArchive": str(archive_path.relative_to(repository_root)),
         "documentVendorAssets": vendor_assets,
         "warnings": warnings,
         "unresolved": unresolved,
     }
+    if archive_path is not None:
+        report["documentVendorArchive"] = str(archive_path.relative_to(repository_root))
+
     report_path.parent.mkdir(parents=True, exist_ok=True)
     unresolved_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(
