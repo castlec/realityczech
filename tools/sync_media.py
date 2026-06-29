@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Download and validate media declared in media/sources.json.
+"""Download, validate, discover, and package Reality Czech media.
 
-Direct media is written into app/src/main/assets/media so Gradle packages it in the
-APK. Streaming media is availability-checked but is not downloaded.
+Declared direct media is written into app/src/main/assets/media so Gradle packages
+it in the APK. Streaming media is availability-checked but is not downloaded.
+The Unit 1 source graph and public document exports are also audited; embedded
+media is extracted into a versioned vendor archive and unresolved attribution
+causes CI to fail.
 """
 
 from __future__ import annotations
@@ -19,9 +22,16 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+from media_discovery.part2 import finalize as finalize_unit1_discovery
+from media_discovery.unit1 import collect as collect_unit1_media
+
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "media/sources.json"
 REPORT_PATH = ROOT / "media/sync-report.json"
+UNIT1_OUTPUT_ROOT = ROOT / "media/discovery/unit1"
+UNIT1_REPORT_PATH = ROOT / "media/discovery/unit1-report.json"
+UNIT1_UNRESOLVED_PATH = ROOT / "media/discovery/unit1-unresolved.json"
+UNIT1_VENDOR_ARCHIVE = ROOT / "media/vendor/unit1-document-media.zip"
 USER_AGENT = "RealityCzechAndroidMediaSync/1.0 (+https://github.com/castlec/realityczech)"
 MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024
 
@@ -234,10 +244,25 @@ def write_report(status: str, results: list[dict[str, Any]], errors: list[str]) 
     REPORT_PATH.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+def run_unit1_discovery(workers: int) -> dict[str, Any]:
+    if UNIT1_OUTPUT_ROOT.exists():
+        shutil.rmtree(UNIT1_OUTPUT_ROOT)
+    UNIT1_OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+    state = collect_unit1_media(ROOT, UNIT1_OUTPUT_ROOT, workers)
+    return finalize_unit1_discovery(
+        state,
+        ROOT,
+        UNIT1_VENDOR_ARCHIVE,
+        UNIT1_REPORT_PATH,
+        UNIT1_UNRESOLVED_PATH,
+    )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--no-clean", action="store_true")
+    parser.add_argument("--skip-unit1-discovery", action="store_true")
     args = parser.parse_args()
 
     results: list[dict[str, Any]] = []
@@ -290,6 +315,15 @@ def main() -> None:
         if missing:
             raise MediaError(f"generated media files are missing: {missing}")
 
+        if not args.skip_unit1_discovery:
+            unit1_report = run_unit1_discovery(args.workers)
+            unresolved = unit1_report.get("unresolved", [])
+            if unresolved:
+                raise MediaError(
+                    f"Unit 1 media discovery has {len(unresolved)} unresolved item(s); "
+                    f"see {UNIT1_UNRESOLVED_PATH.relative_to(ROOT)}"
+                )
+
         write_report("ok", results, [])
         print(
             f"synchronized {len(results)} media item(s): "
@@ -299,6 +333,8 @@ def main() -> None:
     except MediaError as exc:
         if not REPORT_PATH.exists():
             write_report("failed", results, [str(exc)])
+        else:
+            write_report("failed", results, [str(exc), *errors])
         print(f"media sync failed: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
 
