@@ -4,6 +4,7 @@ import hashlib
 import json
 import shutil
 import zipfile
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -77,17 +78,34 @@ def write_repository_shards(
             "sha256": document["sha256"],
             "attribution": document.get("attribution", {}),
             "attributionInherited": document.get("attributionInherited", False),
+            "paragraphCount": len(document.get("paragraphs", [])),
+            "headings": list(
+                dict.fromkeys(
+                    paragraph.get("heading", "")
+                    for paragraph in document.get("paragraphs", [])
+                    if paragraph.get("heading")
+                )
+            ),
             "extractedMediaCount": len(document["extractedMedia"]),
         }
         for document in report["documents"]
     ]
+    classification_counts = Counter(
+        occurrence.get("classification", "unclassified")
+        for asset in assets
+        for occurrence in asset.get("occurrences", [])
+    )
     manifest = {
-        "version": 1,
+        "version": 2,
         "sourceUnit": report["seed"],
         "siteLicense": report["siteLicense"],
-        "counts": report["counts"],
+        "counts": {
+            **report["counts"],
+            "semanticClassifications": dict(sorted(classification_counts.items())),
+        },
         "documents": documents,
         "warnings": report.get("warnings", []),
+        "semanticIndex": "content-index.json",
         "shards": shards,
         "assets": [
             {
@@ -103,6 +121,28 @@ def write_repository_shards(
     }
     (output_dir / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    content_index = {
+        "version": 1,
+        "sourceUnit": report["seed"],
+        "documents": [
+            {
+                "documentId": document["documentId"],
+                "sourcePage": document.get("sourcePage", ""),
+                "sourcePages": document.get("sourcePages", []),
+                "exportUrl": document["exportUrl"],
+                "attribution": document.get("attribution", {}),
+                "attributionInherited": document.get("attributionInherited", False),
+                "paragraphs": document.get("paragraphs", []),
+                "hyperlinks": document.get("hyperlinks", []),
+            }
+            for document in report["documents"]
+        ],
+    }
+    (output_dir / "content-index.json").write_text(
+        json.dumps(content_index, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
     return manifest

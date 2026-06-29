@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify committed document-only media shards without re-crawling sources."""
+"""Verify committed document-only media shards and semantic index."""
 
 from __future__ import annotations
 
@@ -27,6 +27,38 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
+def verify_semantic_index(manifest: dict) -> int:
+    semantic_name = manifest.get("semanticIndex")
+    if manifest.get("version") == 1 and not semantic_name:
+        return 0
+    if not isinstance(semantic_name, str) or not semantic_name:
+        fail("manifest version 2 requires semanticIndex")
+    path = VENDOR_ROOT / semantic_name
+    if not path.is_file():
+        fail(f"missing semantic index: {semantic_name}")
+    try:
+        semantic = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        fail(f"invalid semantic index JSON: {exc}")
+    if semantic.get("version") != 1:
+        fail("unsupported semantic index version")
+    documents = semantic.get("documents")
+    if not isinstance(documents, list):
+        fail("semantic index contains no documents")
+    manifest_ids = {item.get("documentId") for item in manifest.get("documents", [])}
+    semantic_ids = {item.get("documentId") for item in documents}
+    if manifest_ids != semantic_ids:
+        fail("semantic index document set does not match manifest")
+    for document in documents:
+        paragraphs = document.get("paragraphs")
+        if not isinstance(paragraphs, list):
+            fail(f"document {document.get('documentId')} lacks paragraphs")
+        indexes = [item.get("index") for item in paragraphs]
+        if indexes != sorted(indexes):
+            fail(f"document {document.get('documentId')} paragraph order is invalid")
+    return len(documents)
+
+
 def main() -> None:
     if not MANIFEST_PATH.exists():
         print("no committed document-media manifest yet; ingestion has not been merged")
@@ -36,7 +68,7 @@ def main() -> None:
         manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         fail(f"invalid manifest JSON: {exc}")
-    if manifest.get("version") != 1:
+    if manifest.get("version") not in {1, 2}:
         fail("unsupported manifest version")
 
     assets = manifest.get("assets")
@@ -60,6 +92,10 @@ def main() -> None:
         if not isinstance(shard, str) or not isinstance(archive_path, str):
             fail(f"asset {digest} lacks shard or archivePath")
         expected_by_shard.setdefault(shard, {})[archive_path] = asset
+        if manifest.get("version") == 2:
+            for occurrence in asset.get("occurrences", []):
+                if "classification" not in occurrence or "appearances" not in occurrence:
+                    fail(f"asset {digest} occurrence lacks semantic context")
 
     seen_paths: set[str] = set()
     for shard in shards:
@@ -89,7 +125,9 @@ def main() -> None:
 
     if len(seen_paths) != len(assets):
         fail(f"verified {len(seen_paths)} of {len(assets)} assets")
-    print(f"verified {len(assets)} document-media asset(s) across {len(shards)} shard(s)")
+    semantic_documents = verify_semantic_index(manifest)
+    suffix = f" and {semantic_documents} semantic document(s)" if semantic_documents else ""
+    print(f"verified {len(assets)} document-media asset(s) across {len(shards)} shard(s){suffix}")
 
 
 if __name__ == "__main__":

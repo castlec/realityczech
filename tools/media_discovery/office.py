@@ -1,12 +1,45 @@
 from __future__ import annotations
 
 import hashlib
+import posixpath
+import re
 import zipfile
 from pathlib import Path
 from typing import Any
 from xml.etree import ElementTree
 
 from .web import ATTRIBUTION_MARKERS
+
+NAMESPACES = {
+    "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+    "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+    "a": "http://schemas.openxmlformats.org/drawingml/2006/main",
+    "wp": "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing",
+    "v": "urn:schemas-microsoft-com:vml",
+}
+HEADING_RE = re.compile(r"^(heading|nadpis|title|subtitle)", re.IGNORECASE)
+CAPTION_RE = re.compile(r"^(caption|popisek)", re.IGNORECASE)
+EXERCISE_MARKERS = (
+    "exercise",
+    "practice",
+    "activity",
+    "worksheet",
+    "quiz",
+    "match",
+    "choose",
+    "complete",
+    "fill in",
+    "write",
+    "listen",
+    "answer",
+    "cvičení",
+    "aktivita",
+    "doplň",
+    "vyber",
+    "napiš",
+    "poslech",
+    "odpověz",
+)
 
 
 def _sha256(data: bytes) -> str:
@@ -54,25 +87,128 @@ def relationship_map(archive: zipfile.ZipFile) -> dict[str, str]:
     }
 
 
+def media_member(target: str) -> str:
+    if target.startswith("/"):
+        return target.lstrip("/")
+    return posixpath.normpath(posixpath.join("word", target))
+
+
+def paragraph_style(paragraph: ElementTree.Element) -> str:
+    style = paragraph.find("./w:pPr/w:pStyle", NAMESPACES)
+    return style.attrib.get(f"{{{NAMESPACES['w']}}}val", "") if style is not None else ""
+
+
+def image_relationship_ids(paragraph: ElementTree.Element) -> list[str]:
+    ids: list[str] = []
+    for blip in paragraph.findall(".//a:blip", NAMESPACES):
+        for attribute in ("embed", "link"):
+            value = blip.attrib.get(f"{{{NAMESPACES['r']}}}{attribute}")
+            if value and value not in ids:
+                ids.append(value)
+    for image in paragraph.findall(".//v:imagedata", NAMESPACES):
+        value = image.attrib.get(f"{{{NAMESPACES['r']}}}id")
+        if value and value not in ids:
+            ids.append(value)
+    return ids
+
+
+def image_alt_text(paragraph: ElementTree.Element) -> list[str]:
+    result: list[str] = []
+    for node in paragraph.findall(".//wp:docPr", NAMESPACES):
+        for key in ("descr", "title", "name"):
+            value = node.attrib.get(key, "").strip()
+            if value and value not in result and not value.lower().startswith("picture "):
+                result.append(value)
+    return result
+
+
+def is_heading(style: str, text: str) -> bool:
+    if HEADING_RE.search(style):
+        return True
+    stripped = text.strip()
+    return bool(stripped and len(stripped) <= 90 and stripped.endswith(":") and not stripped.endswith("?:"))
+
+
+def is_caption(style: str) -> bool:
+    return bool(CAPTION_RE.search(style))
+
+
+def classification(context: str, attribution_section: bool, has_text: bool) -> str:
+    lowered = context.lower()
+    if attribution_section or any(marker in lowered for marker in ATTRIBUTION_MARKERS):
+        return "attribution-only"
+    if any(marker in lowered for marker in EXERCISE_MARKERS):
+        return "exercise-related"
+    if has_text:
+        return "instructional"
+    return "decorative"
+
+
 def paragraph_records(archive: zipfile.ZipFile, relationships: dict[str, str]) -> list[dict[str, Any]]:
     path = "word/document.xml"
     if path not in archive.namelist():
         return []
-    ns = {
-        "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
-        "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
-    }
     root = ElementTree.fromstring(archive.read(path))
     records: list[dict[str, Any]] = []
-    for paragraph in root.findall(".//w:p", ns):
-        text = "".join(node.text or "" for node in paragraph.findall(".//w:t", ns)).strip()
+    current_heading = ""
+    attribution_section = False
+
+    for index, paragraph in enumerate(root.findall(".//w:p", NAMESPACES)):
+        text = "".join(node.text or "" for node in paragraph.findall(".//w:t", NAMESPACES)).strip()
+        style = paragraph_style(paragraph)
         links: list[str] = []
-        for hyperlink in paragraph.findall(".//w:hyperlink", ns):
-            rel_id = hyperlink.attrib.get(f"{{{ns['r']}}}id")
+        for hyperlink in paragraph.findall(".//w:hyperlink", NAMESPACES):
+            rel_id = hyperlink.attrib.get(f"{{{NAMESPACES['r']}}}id")
             if rel_id and rel_id in relationships:
                 links.append(relationships[rel_id])
-        if text or links:
-            records.append({"text": text, "links": links})
+        members = [
+            media_member(relationships[rel_id])
+            for rel_id in image_relationship_ids(paragraph)
+            if rel_id in relationships and not relationships[rel_id].startswith(("http://", "https://"))
+        ]
+        alt_text = image_alt_text(paragraph)
+        if is_heading(style, text):
+            current_heading = text
+        lowered = text.lower()
+        if any(marker in lowered for marker in ATTRIBUTION_MARKERS):
+            attribution_section = True
+        if text or links or members:
+            records.append(
+                {
+                    "index": index,
+                    "style": style,
+                    "text": text,
+                    "heading": current_heading,
+                    "links": links,
+                    "mediaMembers": members,
+                    "altText": alt_text,
+                    "attributionSection": attribution_section,
+                }
+            )
+
+    for position, record in enumerate(records):
+        previous_text = next(
+            (records[i]["text"] for i in range(position - 1, -1, -1) if records[i]["text"]),
+            "",
+        )
+        next_text = next(
+            (records[i]["text"] for i in range(position + 1, len(records)) if records[i]["text"]),
+            "",
+        )
+        caption = record["text"] if record["mediaMembers"] and record["text"] else ""
+        if not caption and position + 1 < len(records) and is_caption(records[position + 1]["style"]):
+            caption = records[position + 1]["text"]
+        context_parts = [record["heading"], previous_text, record["text"], next_text, *record["altText"]]
+        context_text = "\n".join(dict.fromkeys(part for part in context_parts if part))
+        record["previousText"] = previous_text
+        record["nextText"] = next_text
+        record["caption"] = caption
+        record["contextText"] = context_text
+        record["classification"] = classification(
+            context_text,
+            bool(record["attributionSection"]),
+            bool(context_text),
+        )
     return records
 
 
@@ -89,6 +225,33 @@ def attribution_from_paragraphs(paragraphs: list[dict[str, Any]]) -> dict[str, A
         if start >= 0 or any(marker in record["text"].lower() for marker in ATTRIBUTION_MARKERS)
     ]
     return {"text": text, "links": links}
+
+
+def media_appearances(member: str, paragraphs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "paragraphIndex": record["index"],
+            "style": record["style"],
+            "heading": record["heading"],
+            "text": record["text"],
+            "previousText": record["previousText"],
+            "nextText": record["nextText"],
+            "caption": record["caption"],
+            "altText": record["altText"],
+            "contextText": record["contextText"],
+            "classification": record["classification"],
+        }
+        for record in paragraphs
+        if member in record["mediaMembers"]
+    ]
+
+
+def aggregate_classification(appearances: list[dict[str, Any]]) -> str:
+    values = {item["classification"] for item in appearances}
+    for preferred in ("exercise-related", "instructional", "decorative", "attribution-only"):
+        if preferred in values:
+            return preferred
+    return "decorative"
 
 
 def extract_docx(
@@ -116,6 +279,7 @@ def extract_docx(
             digest = _sha256(payload)
             output = destination / f"{digest[:16]}{extension}"
             output.write_bytes(payload)
+            appearances = media_appearances(member, paragraphs)
             extracted.append(
                 {
                     "documentId": doc_id,
@@ -125,6 +289,9 @@ def extract_docx(
                     "localPath": str(output.relative_to(repository_root)),
                     "bytes": len(payload),
                     "sha256": digest,
+                    "sourceOrder": appearances[0]["paragraphIndex"] if appearances else None,
+                    "classification": aggregate_classification(appearances),
+                    "appearances": appearances,
                 }
             )
 
