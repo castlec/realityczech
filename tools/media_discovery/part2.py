@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 import urllib.parse
 from pathlib import Path
 from typing import Any
@@ -86,4 +87,9 @@ def finalize(
         json.dumps(unresolved, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+    for issue in unresolved:
+        print(
+            f"UNRESOLVED {issue.get('url', '<unknown>')}: {issue.get('error', issue)}",
+            file=sys.stderr,
+        )
     return report
