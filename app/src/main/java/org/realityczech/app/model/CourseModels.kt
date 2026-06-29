@@ -105,22 +105,32 @@ data class Exercise(
     val choices: List<String> = emptyList(),
     val correctIndex: Int = -1,
     val acceptedAnswers: List<String> = emptyList(),
+    val spokenText: String = "",
     val explanation: String,
 ) {
     init {
         require(type in SUPPORTED_TYPES) { "Unsupported exercise type: $type" }
-        if (type == MULTIPLE_CHOICE) {
-            require(choices.isNotEmpty()) { "A multiple-choice exercise needs choices." }
+        if (type in CHOICE_TYPES) {
+            require(choices.isNotEmpty()) { "A choice exercise needs choices." }
             require(correctIndex in choices.indices) { "correctIndex must point to a choice." }
         }
-        if (type == TEXT_ENTRY) {
+        if (type in TEXT_ENTRY_TYPES) {
             require(acceptedAnswers.isNotEmpty()) { "A text-entry exercise needs acceptedAnswers." }
+        }
+        if (type in LISTENING_TYPES) {
+            require(spokenText.isNotBlank()) { "A listening exercise needs spokenText." }
         }
     }
 
     companion object {
         const val MULTIPLE_CHOICE = "multiple_choice"
         const val TEXT_ENTRY = "text_entry"
-        val SUPPORTED_TYPES = setOf(MULTIPLE_CHOICE, TEXT_ENTRY)
+        const val LISTEN_SELECT = "listen_select"
+        const val LISTEN_TYPE = "listen_type"
+
+        val CHOICE_TYPES = setOf(MULTIPLE_CHOICE, LISTEN_SELECT)
+        val TEXT_ENTRY_TYPES = setOf(TEXT_ENTRY, LISTEN_TYPE)
+        val LISTENING_TYPES = setOf(LISTEN_SELECT, LISTEN_TYPE)
+        val SUPPORTED_TYPES = CHOICE_TYPES + TEXT_ENTRY_TYPES
     }
 }
