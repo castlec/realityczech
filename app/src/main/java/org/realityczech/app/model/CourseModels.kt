@@ -91,6 +91,7 @@ data class LearningResource(
     val mediaId: String = "",
     val assetPath: String = "",
     val fallbackText: String = "",
+    val attribution: String = "",
 ) {
     val isEmbeddedVideo: Boolean
         get() = provider == YOUTUBE_PROVIDER && mediaId.isNotBlank()
@@ -102,6 +103,36 @@ data class LearningResource(
         const val YOUTUBE_PROVIDER = "youtube"
         const val ASSET_AUDIO_PROVIDER = "asset-audio"
     }
+}
+
+@Serializable
+data class MediaCatalog(
+    val version: Int,
+    val license: String = "",
+    val assets: List<MediaCatalogAsset>,
+)
+
+@Serializable
+data class MediaCatalogAsset(
+    val id: String,
+    val kind: String,
+    val delivery: String,
+    val lessonId: String = "",
+    val lessonIds: List<String> = emptyList(),
+    val label: String = "",
+    val sourcePage: String = "",
+    val sourcePages: List<String> = emptyList(),
+    val sourceUrl: String = "",
+    val localPath: String = "",
+    val attribution: String = "",
+    val speaker: String = "",
+    val fallbackText: String = "",
+) {
+    val applicableLessonIds: List<String>
+        get() = lessonIds.ifEmpty { listOfNotNull(lessonId.takeIf(String::isNotBlank)) }
+
+    val isBundledAudio: Boolean
+        get() = kind == "audio" && delivery == "bundle" && localPath.isNotBlank()
 }
 
 @Serializable
