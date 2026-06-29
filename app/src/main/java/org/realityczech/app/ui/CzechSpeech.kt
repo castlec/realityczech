@@ -102,14 +102,14 @@ internal fun CzechSpeakControls(
             onClick = { speaker.speak(text) },
             enabled = enabled,
         ) {
-            Text(if (enabled) "Play" else "Voice unavailable")
+            Text(if (enabled) "Play TTS" else "Czech TTS unavailable")
         }
         if (showSlow) {
             OutlinedButton(
                 onClick = { speaker.speak(text, slow = true) },
                 enabled = enabled,
             ) {
-                Text("Slow")
+                Text("Slow TTS")
             }
         }
     }
