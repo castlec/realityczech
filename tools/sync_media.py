@@ -4,8 +4,8 @@
 Declared direct media is written into app/src/main/assets/media so Gradle packages
 it in the APK. Streaming media is availability-checked but is not downloaded.
 The Unit 1 source graph and public document exports are also audited; embedded
-media is extracted into a versioned vendor archive and unresolved attribution
-causes CI to fail.
+media is extracted into a vendor archive and unresolved attribution causes CI to
+fail.
 """
 
 from __future__ import annotations
@@ -24,6 +24,7 @@ from typing import Any
 
 from media_discovery.part2 import finalize as finalize_unit1_discovery
 from media_discovery.unit1 import collect as collect_unit1_media
+from unit1_audio import Unit1AudioError, expand_unit1_audio
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST_PATH = ROOT / "media/sources.json"
@@ -34,6 +35,19 @@ UNIT1_UNRESOLVED_PATH = ROOT / "media/discovery/unit1-unresolved.json"
 UNIT1_VENDOR_ARCHIVE = ROOT / "media/vendor/unit1-document-media.zip"
 USER_AGENT = "RealityCzechAndroidMediaSync/1.0 (+https://github.com/castlec/realityczech)"
 MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024
+CATALOG_FIELDS = (
+    "id",
+    "kind",
+    "lessonId",
+    "lessonIds",
+    "label",
+    "sourcePage",
+    "sourcePages",
+    "sourceUrl",
+    "attribution",
+    "speaker",
+    "fallbackText",
+)
 
 
 class MediaError(RuntimeError):
@@ -53,7 +67,14 @@ def expand_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
     expanded: list[dict[str, Any]] = []
 
     for group in document.get("imageGroups", []):
-        required = ("id", "lessonId", "sourcePage", "urlTemplate", "localPathTemplate", "items")
+        required = (
+            "id",
+            "lessonId",
+            "sourcePage",
+            "urlTemplate",
+            "localPathTemplate",
+            "items",
+        )
         for key in required:
             if not group.get(key):
                 raise MediaError(f"image group is missing {key}: {group.get('id')!r}")
@@ -72,18 +93,27 @@ def expand_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
                     "id": f"{group['id']}-{number}",
                     "kind": group.get("kind", "image"),
                     "lessonId": group["lessonId"],
+                    "lessonIds": [group["lessonId"]],
                     "label": label,
                     "delivery": group.get("delivery", "bundle"),
                     "sourcePage": group["sourcePage"],
+                    "sourcePages": [group["sourcePage"]],
                     "sourceUrl": group["urlTemplate"].format(**values),
                     "localPath": group["localPathTemplate"].format(**values),
                     "expectedContentTypes": group.get("expectedContentTypes", ["image/"]),
                     "minBytes": group.get("minBytes", 1),
-                    "attribution": group.get("attribution", "Reality Czech; CC BY-SA 3.0"),
+                    "attribution": group.get(
+                        "attribution",
+                        "Reality Czech; CC BY-SA 3.0",
+                    ),
                 }
             )
 
     expanded.extend(document.get("assets", []))
+    try:
+        expanded.extend(expand_unit1_audio(ROOT))
+    except Unit1AudioError as exc:
+        raise MediaError(str(exc)) from exc
     return expanded
 
 
@@ -111,9 +141,22 @@ def validate_manifest(document: dict[str, Any], assets: list[dict[str, Any]]) ->
 
         if asset.get("delivery") not in {"bundle", "stream"}:
             raise MediaError(f"unsupported delivery for {asset_id}: {asset.get('delivery')!r}")
-        for field in ("kind", "lessonId", "label", "sourcePage", "sourceUrl"):
+        for field in (
+            "kind",
+            "lessonId",
+            "label",
+            "sourcePage",
+            "sourceUrl",
+            "attribution",
+        ):
             if not asset.get(field):
                 raise MediaError(f"{asset_id} is missing {field}")
+
+        lesson_ids = asset.get("lessonIds", [asset["lessonId"]])
+        if not isinstance(lesson_ids, list) or not lesson_ids or not all(
+            isinstance(value, str) and value for value in lesson_ids
+        ):
+            raise MediaError(f"{asset_id} has invalid lessonIds")
 
         if asset["delivery"] == "bundle":
             local_path = asset.get("localPath")
@@ -183,6 +226,13 @@ def validate_payload(asset: dict[str, Any], data: bytes, content_type: str) -> N
         html_prefix = data[:256].lower()
         if b"<html" in html_prefix or b"<!doctype html" in html_prefix:
             raise MediaError(f"{asset_id} returned HTML instead of audio")
+        is_mp3 = data.startswith(b"ID3") or data[:2] in {
+            b"\xff\xfb",
+            b"\xff\xf3",
+            b"\xff\xf2",
+        }
+        if asset.get("localPath", "").lower().endswith(".mp3") and not is_mp3:
+            raise MediaError(f"{asset_id} did not return a recognized MP3 file")
 
     expected_hash = asset.get("sha256")
     if expected_hash:
@@ -193,15 +243,23 @@ def validate_payload(asset: dict[str, Any], data: bytes, content_type: str) -> N
             )
 
 
+def catalog_metadata(asset: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: asset[key]
+        for key in CATALOG_FIELDS
+        if key in asset and asset[key] not in (None, "", [])
+    }
+
+
 def sync_asset(asset: dict[str, Any], output_root: Path) -> dict[str, Any]:
+    metadata = catalog_metadata(asset)
     if asset["delivery"] == "stream":
         data, content_type, final_url = request_bytes(asset["checkUrl"])
         if not data:
             raise MediaError(f"stream check returned no data: {asset['id']}")
         return {
-            "id": asset["id"],
+            **metadata,
             "delivery": "stream",
-            "sourceUrl": asset["sourceUrl"],
             "checkUrl": asset["checkUrl"],
             "contentType": content_type,
             "bytes": len(data),
@@ -218,9 +276,8 @@ def sync_asset(asset: dict[str, Any], output_root: Path) -> dict[str, Any]:
     digest = hashlib.sha256(data).hexdigest()
 
     return {
-        "id": asset["id"],
+        **metadata,
         "delivery": "bundle",
-        "sourceUrl": asset["sourceUrl"],
         "downloadUrl": download_url,
         "localPath": asset["localPath"],
         "assetUri": f"file:///android_asset/media/{asset['localPath']}",
@@ -241,7 +298,10 @@ def write_report(status: str, results: list[dict[str, Any]], errors: list[str]) 
         "errors": errors,
     }
     REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REPORT_PATH.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    REPORT_PATH.write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
 
 
 def run_unit1_discovery(workers: int) -> dict[str, Any]:
@@ -310,7 +370,8 @@ def main() -> None:
         missing = [
             result["localPath"]
             for result in results
-            if result["delivery"] == "bundle" and not (output_root / result["localPath"]).is_file()
+            if result["delivery"] == "bundle"
+            and not (output_root / result["localPath"]).is_file()
         ]
         if missing:
             raise MediaError(f"generated media files are missing: {missing}")
