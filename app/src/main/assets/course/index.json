@@ -2,7 +2,7 @@
   "title": "Reality Czech",
   "description": "A native, offline-first adaptation following Reality Czech Unit 1 in its original 1.1–1.11 instructional sequence.",
   "sourceUrl": "https://realityczech.org/unit-1/",
-  "license": "Adapted from Reality Czech by Christian Hilchey and COERLL under CC BY-SA 3.0. Original attribution metadata is retained in the checked-in media manifest.",
+  "license": "Adapted from Reality Czech by Christian Hilchey and COERLL under CC BY-SA 3.0. Original attribution metadata is retained in the checked-in media manifest. App build 0.4.0 (version code 4).",
   "units": [
     {
       "id": "unit-1",
