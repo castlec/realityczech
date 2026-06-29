@@ -33,7 +33,18 @@ jobs:
           gradle-version: "8.11.1"
 
       - name: Test, lint, and build debug APK
-        run: gradle testDebugUnitTest lintDebug assembleDebug --stacktrace
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle testDebugUnitTest lintDebug assembleDebug --stacktrace --console=plain 2>&1 | tee gradle-build.log
+
+      - name: Upload Gradle build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-gradle-build-log
+          path: gradle-build.log
+          if-no-files-found: error
 
       - name: Upload debug APK
         uses: actions/upload-artifact@v4
