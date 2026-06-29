@@ -1,0 +1,80 @@
+name: Ingest Unit 1 Media
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: Branch that receives generated media shards
+        required: true
+        default: media-ingestion/unit1
+  push:
+    branches:
+      - media-ingestion/unit1
+    paths:
+      - .github/media-ingestion-trigger/**
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out ingestion branch
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.target_branch || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Extract and shard Unit 1 document media
+        run: python3 tools/ingest_unit1_media.py
+
+      - name: Verify generated shards
+        run: python3 tools/verify_vendor_media.py
+
+      - name: Commit generated media
+        env:
+          TARGET_BRANCH: ${{ inputs.target_branch || github.ref_name }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config http.postBuffer 1048576000
+          git add media/vendor/unit1-document-media
+          if git diff --cached --quiet; then
+            echo "No document-media changes were produced."
+          else
+            git commit -m "Vendor extracted Unit 1 document media"
+            git push origin "HEAD:${TARGET_BRANCH}"
+          fi
+
+      - name: Open or update ingestion pull request
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_BRANCH: ${{ inputs.target_branch || github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh pr view "${TARGET_BRANCH}" --json number >/dev/null 2>&1; then
+            echo "An ingestion pull request already exists."
+          else
+            gh pr create \
+              --base main \
+              --head "${TARGET_BRANCH}" \
+              --title "Vendor Unit 1 document media" \
+              --body "Commit the media that exists only inside Reality Czech source documents. Assets are deduplicated by SHA-256, split into deterministic repository shards, and retain document/source attribution in the manifest."
+          fi
+
+      - name: Upload discovery report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit1-media-ingestion-report
+          path: |
+            media/discovery/unit1-report.json
+            media/discovery/unit1-unresolved.json
+            media/vendor/unit1-document-media/manifest.json
+          if-no-files-found: warn

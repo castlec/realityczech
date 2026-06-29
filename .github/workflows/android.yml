@@ -18,8 +18,11 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v6
 
-      - name: Pull and validate declared media
-        run: python3 tools/sync_media.py
+      - name: Pull and validate declared URL media
+        run: python3 tools/sync_media.py --skip-unit1-discovery
+
+      - name: Verify committed document media
+        run: python3 tools/verify_vendor_media.py
 
       - name: Verify reviewed media checksums
         run: python3 tools/verify_media_checksums.py
