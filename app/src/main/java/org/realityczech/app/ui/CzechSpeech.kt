@@ -28,7 +28,9 @@ class CzechSpeaker internal constructor(context: Context) {
                 return@TextToSpeech
             }
 
-            val result = textToSpeech?.setLanguage(Locale.forLanguageTag("cs-CZ"))
+            val result = textToSpeech
+                ?.setLanguage(Locale.forLanguageTag("cs-CZ"))
+                ?: TextToSpeech.LANG_NOT_SUPPORTED
             isReady = result != TextToSpeech.LANG_MISSING_DATA &&
                 result != TextToSpeech.LANG_NOT_SUPPORTED
             isUnavailable = !isReady
