@@ -89,12 +89,18 @@ data class LearningResource(
     val note: String = "",
     val provider: String = "",
     val mediaId: String = "",
+    val assetPath: String = "",
+    val fallbackText: String = "",
 ) {
     val isEmbeddedVideo: Boolean
         get() = provider == YOUTUBE_PROVIDER && mediaId.isNotBlank()
 
+    val isEmbeddedAudio: Boolean
+        get() = provider == ASSET_AUDIO_PROVIDER && assetPath.isNotBlank()
+
     companion object {
         const val YOUTUBE_PROVIDER = "youtube"
+        const val ASSET_AUDIO_PROVIDER = "asset-audio"
     }
 }
 
