@@ -24,15 +24,20 @@ jobs:
       - name: Verify committed document media
         run: python3 tools/verify_vendor_media.py
 
-      - name: Verify reviewed media checksums
+      - name: Verify reviewed URL-media checksums
         run: python3 tools/verify_media_checksums.py
 
-      - name: Upload media sync report
+      - name: Materialize document-only lesson images
+        run: python3 tools/materialize_vendor_media.py
+
+      - name: Upload media reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: media-sync-report
-          path: media/sync-report.json
+          path: |
+            media/sync-report.json
+            media/vendor-materialization-report.json
           if-no-files-found: error
 
       - name: Validate structured course content

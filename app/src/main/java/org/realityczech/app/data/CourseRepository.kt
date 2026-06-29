@@ -20,7 +20,8 @@ class CourseRepository(private val context: Context) {
     fun load(): Course {
         val index = readJson<CourseIndex>(COURSE_INDEX_ASSET)
         val mediaCatalog = readJson<MediaCatalog>(MEDIA_CATALOG_ASSET)
-        val audioByLesson = generatedAudioByLesson(mediaCatalog)
+        val audioByLesson = assetsByLesson(mediaCatalog) { it.isBundledAudio }
+        val documentImagesByLesson = assetsByLesson(mediaCatalog) { it.isVendorImage }
         val units = index.units.map { unit ->
             CourseUnit(
                 id = unit.id,
@@ -28,7 +29,9 @@ class CourseRepository(private val context: Context) {
                 description = unit.description,
                 lessons = unit.lessonFiles.map { filename ->
                     val lesson = readJson<Lesson>("$LESSON_DIRECTORY/$filename")
-                    lesson.withGeneratedAudio(audioByLesson[lesson.id].orEmpty())
+                    lesson
+                        .withGeneratedAudio(audioByLesson[lesson.id].orEmpty())
+                        .withDocumentImages(documentImagesByLesson[lesson.id].orEmpty())
                 },
             )
         }
@@ -42,11 +45,12 @@ class CourseRepository(private val context: Context) {
         )
     }
 
-    private fun generatedAudioByLesson(
+    private fun assetsByLesson(
         catalog: MediaCatalog,
+        predicate: (MediaCatalogAsset) -> Boolean,
     ): Map<String, List<MediaCatalogAsset>> = catalog.assets
         .asSequence()
-        .filter { it.isBundledAudio }
+        .filter(predicate)
         .flatMap { asset -> asset.applicableLessonIds.asSequence().map { lessonId -> lessonId to asset } }
         .groupBy(keySelector = { it.first }, valueTransform = { it.second })
 
@@ -77,6 +81,29 @@ class CourseRepository(private val context: Context) {
                 )
             }
             .toList()
+        return copy(resources = resources + generated)
+    }
+
+    private fun Lesson.withDocumentImages(assets: List<MediaCatalogAsset>): Lesson {
+        if (assets.isEmpty()) return this
+        val generated = assets
+            .sortedBy { it.id }
+            .mapIndexed { index, asset ->
+                val inheritedNote = if (asset.attributionInherited) {
+                    " Site-level Reality Czech attribution applies because the document contains no narrower credit."
+                } else {
+                    ""
+                }
+                LearningResource(
+                    title = "Source image ${index + 1}",
+                    kind = "source document image",
+                    url = asset.sourcePage.ifBlank { asset.sourceUrl },
+                    note = "Extracted from the original lesson document.$inheritedNote",
+                    provider = LearningResource.VENDOR_IMAGE_PROVIDER,
+                    assetPath = "media/${asset.localPath}",
+                    attribution = asset.attribution,
+                )
+            }
         return copy(resources = resources + generated)
     }
 

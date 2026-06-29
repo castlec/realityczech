@@ -99,9 +99,13 @@ data class LearningResource(
     val isEmbeddedAudio: Boolean
         get() = provider == ASSET_AUDIO_PROVIDER && assetPath.isNotBlank()
 
+    val isDocumentImage: Boolean
+        get() = provider == VENDOR_IMAGE_PROVIDER && assetPath.isNotBlank()
+
     companion object {
         const val YOUTUBE_PROVIDER = "youtube"
         const val ASSET_AUDIO_PROVIDER = "asset-audio"
+        const val VENDOR_IMAGE_PROVIDER = "vendor-document-media"
     }
 }
 
@@ -127,12 +131,18 @@ data class MediaCatalogAsset(
     val attribution: String = "",
     val speaker: String = "",
     val fallbackText: String = "",
+    val provider: String = "",
+    val attributionInherited: Boolean = false,
 ) {
     val applicableLessonIds: List<String>
         get() = lessonIds.ifEmpty { listOfNotNull(lessonId.takeIf(String::isNotBlank)) }
 
     val isBundledAudio: Boolean
         get() = kind == "audio" && delivery == "bundle" && localPath.isNotBlank()
+
+    val isVendorImage: Boolean
+        get() = kind == "image" && delivery == "vendor" &&
+            provider == LearningResource.VENDOR_IMAGE_PROVIDER && localPath.isNotBlank()
 }
 
 @Serializable

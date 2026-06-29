@@ -47,30 +47,23 @@ fun LessonMediaSection(
     val videos = resources.filter { it.isEmbeddedVideo }
     val recordedAudio = resources.filter { it.isEmbeddedAudio }
     val pronunciationImages = resources.filter { it.kind == PRONUNCIATION_IMAGE_KIND }
+    val documentImages = resources.filter { it.isDocumentImage }
     val otherResources = resources.filterNot {
-        it.isEmbeddedVideo || it.isEmbeddedAudio || it.kind == PRONUNCIATION_IMAGE_KIND
+        it.isEmbeddedVideo || it.isEmbeddedAudio || it.isDocumentImage ||
+            it.kind == PRONUNCIATION_IMAGE_KIND
     }
 
-    if (videos.isNotEmpty()) {
-        EmbeddedVideoSection(videos = videos, transcript = transcript)
-    }
-
-    if (recordedAudio.isNotEmpty()) {
-        RecordedAudioSection(recordedAudio)
-    }
-
-    if (pronunciationImages.isNotEmpty()) {
-        PronunciationGallery(pronunciationImages)
-    }
+    if (videos.isNotEmpty()) EmbeddedVideoSection(videos, transcript)
+    if (recordedAudio.isNotEmpty()) RecordedAudioSection(recordedAudio)
+    if (pronunciationImages.isNotEmpty()) PronunciationGallery(pronunciationImages)
+    if (documentImages.isNotEmpty()) DocumentImageGallery(documentImages)
 
     if (otherResources.isNotEmpty()) {
         Text("Other sources", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        otherResources.forEach { resource -> ExternalResourceCard(resource) }
+        otherResources.forEach { ExternalResourceCard(it) }
     }
 
-    if (videos.isEmpty() && transcript.isNotEmpty()) {
-        StaticTranscript(transcript)
-    }
+    if (videos.isEmpty() && transcript.isNotEmpty()) StaticTranscript(transcript)
 }
 
 @Composable
@@ -82,18 +75,15 @@ private fun RecordedAudioSection(resources: List<LearningResource>) {
 
     DisposableEffect(Unit) {
         onDispose {
-            player?.stop()
             player?.release()
             player = null
         }
     }
 
     fun play(resource: LearningResource) {
-        player?.stop()
         player?.release()
         player = null
         playbackError = null
-
         try {
             val newPlayer = MediaPlayer()
             context.assets.openFd(resource.assetPath).use { descriptor ->
@@ -117,54 +107,50 @@ private fun RecordedAudioSection(resources: List<LearningResource>) {
 
     Text("Real-speaker recordings", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     Text(
-        "These recordings are bundled from the sources declared in the media manifest. Device speech remains available as a fallback.",
+        "These recordings are bundled from the declared sources. Device speech remains available as a fallback.",
         style = MaterialTheme.typography.bodySmall,
     )
 
-    resources.forEach { resource ->
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(resource.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                if (resource.note.isNotBlank()) Text(resource.note)
-                Button(onClick = { play(resource) }) { Text("Play real speaker") }
-                val fallback = resource.fallbackText.ifBlank { resource.title }
-                Text("Synthesized fallback", style = MaterialTheme.typography.labelMedium)
-                CzechSpeakControls(text = fallback)
-                TextButton(onClick = { uriHandler.openUri(resource.url) }) {
-                    Text("Open original source")
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(resources, key = { it.assetPath }) { resource ->
+            Card(Modifier.width(260.dp)) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(resource.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    if (resource.note.isNotBlank()) Text(resource.note, style = MaterialTheme.typography.bodySmall)
+                    Button(onClick = { play(resource) }) { Text("Play real speaker") }
+                    val fallback = resource.fallbackText.ifBlank { resource.title }
+                    Text("Synthesized fallback", style = MaterialTheme.typography.labelMedium)
+                    CzechSpeakControls(text = fallback)
+                    TextButton(onClick = { uriHandler.openUri(resource.url) }) {
+                        Text("Open original source")
+                    }
                 }
             }
         }
     }
 
-    playbackError?.let { error ->
-        Text("Recorded playback failed: $error", color = MaterialTheme.colorScheme.error)
+    playbackError?.let {
+        Text("Recorded playback failed: $it", color = MaterialTheme.colorScheme.error)
     }
 }
 
 @Composable
 private fun PronunciationGallery(resources: List<LearningResource>) {
     val speaker = LocalCzechSpeaker.current
-
     Text("See, listen, and repeat", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
     Text(
-        "The pictures are bundled into this APK from the URLs declared in the media manifest. Playback uses your device's Czech speech voice when no matching human recording is available.",
+        "The pictures are bundled from declared source URLs. Device Czech speech is used when no matching human recording is available.",
         style = MaterialTheme.typography.bodySmall,
     )
-
     if (speaker.status == CzechSpeechStatus.UNAVAILABLE) {
         Text(
             "No Czech speech voice is installed. The pictures remain available, but synthesized playback is disabled.",
             color = MaterialTheme.colorScheme.error,
         )
     }
-
     LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(resources, key = { "${it.title}-${it.url}" }) { resource ->
-            PronunciationCard(resource)
-        }
+        items(resources, key = { "${it.title}-${it.url}" }) { PronunciationCard(it) }
     }
-
     ListenAndTypePractice(resources)
 }
 
@@ -191,6 +177,56 @@ private fun PronunciationCard(resource: LearningResource) {
 }
 
 @Composable
+private fun DocumentImageGallery(resources: List<LearningResource>) {
+    var visible by remember(resources) { mutableStateOf(false) }
+    Text("Source document images", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    Text(
+        "${resources.size} additional image${if (resources.size == 1) "" else "s"} recovered from the original lesson document. Credits and source links are preserved.",
+        style = MaterialTheme.typography.bodySmall,
+    )
+    TextButton(onClick = { visible = !visible }) {
+        Text(if (visible) "Hide source images" else "Show source images (${resources.size})")
+    }
+    if (!visible) return
+
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(resources, key = { it.assetPath }) { resource -> DocumentImageCard(resource) }
+    }
+}
+
+@Composable
+private fun DocumentImageCard(resource: LearningResource) {
+    val uriHandler = LocalUriHandler.current
+    var creditVisible by remember(resource.assetPath) { mutableStateOf(false) }
+    Card(Modifier.width(260.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AsyncImage(
+                model = "file:///android_asset/${resource.assetPath}",
+                contentDescription = resource.title,
+                modifier = Modifier.fillMaxWidth().height(180.dp),
+                contentScale = ContentScale.Fit,
+            )
+            Column(
+                modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(resource.title, fontWeight = FontWeight.Bold)
+                if (resource.note.isNotBlank()) Text(resource.note, style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = { creditVisible = !creditVisible }) {
+                    Text(if (creditVisible) "Hide credit" else "Show credit")
+                }
+                if (creditVisible) {
+                    Text(resource.attribution, style = MaterialTheme.typography.bodySmall)
+                }
+                TextButton(onClick = { uriHandler.openUri(resource.url) }) {
+                    Text("Open source lesson")
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun ListenAndTypePractice(resources: List<LearningResource>) {
     var selectedIndex by remember(resources) { mutableIntStateOf(0) }
     var answer by remember(selectedIndex) { mutableStateOf("") }
@@ -200,10 +236,7 @@ private fun ListenAndTypePractice(resources: List<LearningResource>) {
 
     Text("Picture dictation", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     Card(Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             AsyncImage(
                 model = bundledImageModel(item),
                 contentDescription = item.note.ifBlank { "Vocabulary image" },
@@ -223,10 +256,7 @@ private fun ListenAndTypePractice(resources: List<LearningResource>) {
                 singleLine = true,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(
-                    onClick = { submitted = true },
-                    enabled = answer.isNotBlank(),
-                ) { Text("Check") }
+                Button(onClick = { submitted = true }, enabled = answer.isNotBlank()) { Text("Check") }
                 OutlinedButton(
                     onClick = {
                         selectedIndex = (selectedIndex + 1) % resources.size
@@ -237,11 +267,7 @@ private fun ListenAndTypePractice(resources: List<LearningResource>) {
             }
             if (submitted) {
                 Text(
-                    if (correct) {
-                        "Correct. ${item.title} means ${item.note}."
-                    } else {
-                        "Not yet. The answer is ${item.title}."
-                    },
+                    if (correct) "Correct. ${item.title} means ${item.note}." else "Not yet. The answer is ${item.title}.",
                     color = if (correct) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                 )
             }
@@ -250,37 +276,26 @@ private fun ListenAndTypePractice(resources: List<LearningResource>) {
 }
 
 @Composable
-private fun EmbeddedVideoSection(
-    videos: List<LearningResource>,
-    transcript: List<TranscriptLine>,
-) {
+private fun EmbeddedVideoSection(videos: List<LearningResource>, transcript: List<TranscriptLine>) {
     var selectedIndex by remember(videos) { mutableIntStateOf(0) }
     var transcriptVisible by remember { mutableStateOf(false) }
     var seekSeconds by remember { mutableStateOf<Int?>(null) }
     val selectedVideo = videos[selectedIndex.coerceIn(videos.indices)]
-    val selectedTranscript = transcript.filter {
-        it.mediaId.isBlank() || it.mediaId == selectedVideo.mediaId
-    }
+    val selectedTranscript = transcript.filter { it.mediaId.isBlank() || it.mediaId == selectedVideo.mediaId }
 
     Text("Watch and listen", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-
     if (videos.size > 1) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             videos.forEachIndexed { index, video ->
+                val onSelect = {
+                    selectedIndex = index
+                    transcriptVisible = false
+                    seekSeconds = null
+                }
                 if (index == selectedIndex) {
-                    Button(
-                        onClick = { selectedIndex = index },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text(video.title) }
+                    Button(onClick = onSelect, modifier = Modifier.fillMaxWidth()) { Text(video.title) }
                 } else {
-                    OutlinedButton(
-                        onClick = {
-                            selectedIndex = index
-                            transcriptVisible = false
-                            seekSeconds = null
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text(video.title) }
+                    OutlinedButton(onClick = onSelect, modifier = Modifier.fillMaxWidth()) { Text(video.title) }
                 }
             }
         }
@@ -288,14 +303,8 @@ private fun EmbeddedVideoSection(
         Text(selectedVideo.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
 
-    YouTubePlayer(
-        videoId = selectedVideo.mediaId,
-        seekToSeconds = seekSeconds,
-    )
-
-    if (selectedVideo.note.isNotBlank()) {
-        Text(selectedVideo.note, style = MaterialTheme.typography.bodySmall)
-    }
+    YouTubePlayer(videoId = selectedVideo.mediaId, seekToSeconds = seekSeconds)
+    if (selectedVideo.note.isNotBlank()) Text(selectedVideo.note, style = MaterialTheme.typography.bodySmall)
 
     val uriHandler = LocalUriHandler.current
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -304,21 +313,13 @@ private fun EmbeddedVideoSection(
                 Text(if (transcriptVisible) "Hide transcript" else "Show transcript")
             }
         }
-        TextButton(onClick = { uriHandler.openUri(selectedVideo.url) }) {
-            Text("Open source page")
-        }
+        TextButton(onClick = { uriHandler.openUri(selectedVideo.url) }) { Text("Open source page") }
     }
 
     if (transcriptVisible) {
-        Text(
-            "Listen once before relying on the transcript.",
-            style = MaterialTheme.typography.bodySmall,
-        )
+        Text("Listen once before relying on the transcript.", style = MaterialTheme.typography.bodySmall)
         selectedTranscript.forEach { line ->
-            TranscriptRow(
-                line = line,
-                onSeek = line.startSeconds?.let { seconds -> { seekSeconds = seconds } },
-            )
+            TranscriptRow(line, line.startSeconds?.let { seconds -> { seekSeconds = seconds } })
         }
     }
 }
@@ -329,23 +330,18 @@ private fun StaticTranscript(transcript: List<TranscriptLine>) {
     TextButton(onClick = { visible = !visible }) {
         Text(if (visible) "Hide transcript" else "Show transcript")
     }
-    if (visible) transcript.forEach { line -> TranscriptRow(line = line, onSeek = null) }
+    if (visible) transcript.forEach { TranscriptRow(it, null) }
 }
 
 @Composable
-private fun TranscriptRow(
-    line: TranscriptLine,
-    onSeek: (() -> Unit)?,
-) {
+private fun TranscriptRow(line: TranscriptLine, onSeek: (() -> Unit)?) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .then(if (onSeek != null) Modifier.clickable(onClick = onSeek) else Modifier)
             .padding(vertical = 8.dp),
     ) {
-        if (line.speaker.isNotBlank()) {
-            Text(line.speaker, style = MaterialTheme.typography.labelMedium)
-        }
+        if (line.speaker.isNotBlank()) Text(line.speaker, style = MaterialTheme.typography.labelMedium)
         Text(line.czech, fontWeight = FontWeight.Bold)
         if (line.english.isNotBlank()) Text(line.english)
         if (line.note.isNotBlank()) Text(line.note, style = MaterialTheme.typography.bodySmall)
