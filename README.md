@@ -24,13 +24,15 @@ The app provides:
 - four Reality Czech interview videos streamed through an in-app YouTube player;
 - selectable video controls for lessons containing several clips;
 - transcript show/hide controls beside the related video;
-- transcript metadata prepared for future tap-to-seek timing;
+- source-hosted image cards for vowel and soft-pronunciation lessons;
+- normal and slow Czech playback using the device text-to-speech voice;
+- image-assisted listen-and-type practice;
 - links back to the original Reality Czech lesson and video pages;
 - per-lesson source attribution and licensing metadata;
 - a vocabulary review deck;
 - GitHub Actions CI that validates course data, runs tests and lint, builds a debug APK, and uploads it as an artifact.
 
-Days 1.4–1.11 and Units 2–10 remain to be converted. Pronunciation audio and source images are not yet bundled; their item-level rights and credits must be mapped first.
+Days 1.4–1.11 and Units 2–10 remain to be converted. Original human pronunciation recordings are not yet integrated; current word playback is explicitly identified as device-generated Czech speech.
 
 ## Build
 
@@ -48,7 +50,7 @@ The APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Continuous integration
 
-Every pull request and push to `main` runs `.github/workflows/android.yml`. A successful workflow provides a `reality-czech-debug-apk` artifact containing an installable debug APK.
+Every pull request and push to `main` runs `.github/workflows/android.yml`. A successful workflow provides a `reality-czech-debug-apk` artifact containing an installable debug APK. The workflow also uploads its plain-text Gradle log so failed builds remain diagnosable.
 
 ## Content architecture
 
@@ -61,6 +63,8 @@ This structure keeps source attribution and curriculum content separate from the
 ## Media architecture
 
 Interview videos are not copied into the repository or APK. The app uses the official YouTube IFrame player inside an Android `WebView`, while Reality Czech remains the linked source page for annotations and attribution.
+
+Pronunciation pictures are requested from Reality Czech and cached by the app's image loader. Czech word playback uses Android's installed `cs-CZ` text-to-speech voice, with normal and slowed controls. This synthesized playback supplements rather than replaces original human recordings.
 
 Lesson resources declare a media provider and stable media ID. Transcript lines can declare the matching media ID and an optional start time, allowing future tap-to-replay behavior without changing the lesson file format.
 
