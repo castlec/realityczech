@@ -40,6 +40,36 @@ class CourseModelsTest {
     }
 
     @Test
+    fun listeningExerciseRequiresSpokenText() {
+        try {
+            Exercise(
+                type = Exercise.LISTEN_SELECT,
+                prompt = "Listen and choose.",
+                choices = listOf("A", "B"),
+                correctIndex = 0,
+                explanation = "Explanation",
+            )
+            fail("Expected an IllegalArgumentException")
+        } catch (_: IllegalArgumentException) {
+            // Expected.
+        }
+    }
+
+    @Test
+    fun validListeningExerciseIsAccepted() {
+        val exercise = Exercise(
+            type = Exercise.LISTEN_TYPE,
+            prompt = "Type what you hear.",
+            acceptedAnswers = listOf("dobrý den"),
+            spokenText = "Dobrý den.",
+            explanation = "A formal greeting.",
+        )
+
+        assertEquals("Dobrý den.", exercise.spokenText)
+        assertTrue(exercise.type in Exercise.LISTENING_TYPES)
+    }
+
+    @Test
     fun courseIndexDecodesFromJson() {
         val index = Json.decodeFromString<CourseIndex>(
             """
