@@ -46,27 +46,30 @@ class CourseRepository(private val context: Context) {
         catalog: MediaCatalog,
     ): Map<String, List<MediaCatalogAsset>> = catalog.assets
         .asSequence()
-        .filter(MediaCatalogAsset::isBundledAudio)
+        .filter { it.isBundledAudio }
         .flatMap { asset -> asset.applicableLessonIds.asSequence().map { lessonId -> lessonId to asset } }
         .groupBy(keySelector = { it.first }, valueTransform = { it.second })
 
     private fun Lesson.withGeneratedAudio(assets: List<MediaCatalogAsset>): Lesson {
         if (assets.isEmpty()) return this
-        val existingPaths = resources.map(LearningResource::assetPath).filter(String::isNotBlank).toSet()
+        val existingPaths = resources.map { it.assetPath }.filter { it.isNotBlank() }.toSet()
         val generated = assets
             .asSequence()
             .filterNot { "media/${it.localPath}" in existingPaths }
             .sortedWith(compareBy<MediaCatalogAsset> { it.label.lowercase() }.thenBy { it.id })
             .map { asset ->
+                val speakerNote = if (asset.speaker.isBlank()) {
+                    "Human recording. The source filename does not identify the speaker."
+                } else {
+                    "Human recording by ${asset.speaker}."
+                }
                 LearningResource(
                     title = asset.label,
                     kind = "audio",
                     url = asset.sourcePage.ifBlank { asset.sourceUrl },
-                    note = if (asset.speaker.isBlank()) {
-                        "Human recording. The source filename does not identify the speaker."
-                    } else {
-                        "Human recording by ${asset.speaker}."
-                    },
+                    note = listOf(speakerNote, asset.attribution)
+                        .filter { it.isNotBlank() }
+                        .joinToString("\n"),
                     provider = LearningResource.ASSET_AUDIO_PROVIDER,
                     assetPath = "media/${asset.localPath}",
                     fallbackText = asset.fallbackText.ifBlank { asset.label },
