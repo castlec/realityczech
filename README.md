@@ -25,7 +25,7 @@ The app provides:
 - four Reality Czech interview videos streamed through an in-app YouTube player;
 - transcript show/hide controls;
 - bundled source images for offline lesson use;
-- original human pronunciation recordings where located;
+- 94 bundled human recordings, with source speaker names retained where published;
 - Android Czech text-to-speech as a clearly labeled fallback;
 - normal and slow synthesized playback for vocabulary and generated exercises;
 - per-lesson source attribution and licensing metadata;
@@ -40,31 +40,33 @@ Requirements:
 - JDK 17
 - Gradle 8.11.1
 - Android SDK 35
-- network access while synchronizing source media
+- network access while synchronizing URL-backed source media
 
 ```bash
-python3 tools/sync_media.py
+python3 tools/sync_media.py --skip-unit1-discovery
+python3 tools/verify_vendor_media.py
 python3 tools/verify_media_checksums.py
 python3 tools/validate_course.py
 gradle testDebugUnitTest lintDebug assembleDebug
 ```
 
-The generated media is written to `app/src/main/assets/media/` and packaged into the APK. The APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
+The generated URL-backed media is written to `app/src/main/assets/media/` and packaged into the APK. The APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Continuous integration
 
 Every pull request and push to `main` runs `.github/workflows/android.yml`.
 
-Before Gradle runs, CI:
+Normal Android CI does not crawl or export source documents. Before Gradle runs, it:
 
-1. expands the canonical inventory in `media/sources.json`;
-2. downloads every asset marked `bundle`;
+1. expands the canonical URL inventory;
+2. downloads every URL-backed asset marked `bundle`;
 3. checks streaming-only video endpoints;
 4. validates content types, file signatures, minimum sizes, IDs, and destination paths;
-5. verifies every bundled file against `media/checksums.json`;
-6. cross-checks lesson references against the generated media catalog and physical files.
+5. verifies committed document-only media shards when present;
+6. verifies URL-backed files against `media/checksums.json`;
+7. cross-checks lesson references against the generated media catalog and physical files.
 
-The build fails when a declared URL is unavailable, a download returns the wrong content, a file is missing, a lesson references undeclared media, or upstream bytes differ from the reviewed checksum lock.
+The build fails when a declared URL is unavailable, a download returns the wrong content, a committed shard is missing or altered, a lesson references undeclared media, or upstream bytes differ from the reviewed checksum lock.
 
 Successful workflows upload:
 
@@ -72,6 +74,22 @@ Successful workflows upload:
 - `media-sync-report`, including resolved URLs, byte counts, and SHA-256 hashes;
 - the Gradle build log;
 - the Android lint report.
+
+## Media ingestion
+
+Source discovery is a separate update workflow because it is expensive and depends on external document-export formats.
+
+`.github/workflows/ingest-unit1-media.yml` runs `tools/ingest_unit1_media.py`. It:
+
+1. crawls the complete Unit 1 source graph;
+2. exports public Google documents;
+3. extracts media embedded only inside those documents;
+4. records the source document, internal member, source lesson, creator/license text, and inherited site attribution where no narrower credit exists;
+5. deduplicates media by SHA-256;
+6. writes 16 deterministic repository shards under `media/vendor/unit1-document-media/`;
+7. verifies those shards and opens or updates a media-ingestion pull request.
+
+Each shard remains below GitHub's individual-file limit. Normal Android CI verifies the committed shards without repeating source extraction.
 
 ## Content architecture
 
@@ -83,16 +101,18 @@ This structure keeps source attribution and curriculum content separate from the
 
 ## Media architecture
 
-`media/sources.json` is the source of truth for media locations. Each entry records the source page, canonical URL, delivery mode, expected type, local APK path, and attribution. Repeated Reality Czech image collections use explicit item lists with URL templates so missing sequence numbers and file extensions remain reviewable in source.
+`media/sources.json` and the Unit 1 audio manifests are the source of truth for stable public media locations. Each entry records the source page, canonical URL, delivery mode, expected type, local APK path, lesson mappings, speaker information where available, and attribution.
 
-`media/checksums.json` locks every bundled asset to a reviewed SHA-256 value. Updating an upstream asset therefore requires an intentional source review and checksum update rather than silently changing the application build.
+`media/checksums.json` locks every URL-backed bundled asset to a reviewed SHA-256 value. Updating an upstream asset therefore requires an intentional source review and checksum update rather than silently changing the application build.
 
-Direct images and recordings are generated during CI and packaged under `app/src/main/assets/media/`. They are intentionally not committed as binary files. Interview videos remain streamed through YouTube and are availability-checked through oEmbed rather than downloaded.
+Media that exists only inside source documents is committed as content-addressed shard archives. `media/vendor/unit1-document-media/manifest.json` maps every extracted file back to its source document and attribution record. `tools/verify_vendor_media.py` verifies each shard and every file inside it.
+
+Direct images and recordings are generated during CI and packaged under `app/src/main/assets/media/`. Interview videos remain streamed through YouTube and are availability-checked through oEmbed rather than downloaded.
 
 Original human recordings are the preferred pronunciation source. Android `TextToSpeech` with the Czech (`cs-CZ`) locale remains available as a fallback and for dynamically generated exercises.
 
 ## Licensing
 
-Reality Czech identifies its curriculum as openly licensed under CC BY-SA. Adapted content retains attribution and share-alike treatment. Source-page and item-level credit information is retained in the media manifest and lesson metadata.
+Reality Czech identifies its curriculum as openly licensed under CC BY-SA. Adapted content retains attribution and share-alike treatment. Source-page, document-level, item-level, and inherited attribution records are retained in the media manifests.
 
 Application source code licensing has not yet been selected.
