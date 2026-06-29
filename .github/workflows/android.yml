@@ -21,6 +21,9 @@ jobs:
       - name: Pull and validate declared media
         run: python3 tools/sync_media.py
 
+      - name: Verify reviewed media checksums
+        run: python3 tools/verify_media_checksums.py
+
       - name: Upload media sync report
         if: always()
         uses: actions/upload-artifact@v4
