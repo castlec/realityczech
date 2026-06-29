@@ -49,6 +49,31 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Restore stable debug signing key
+        id: dev-keystore-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: reality-czech-main-debug-keystore-v1
+
+      - name: Create debug signing key
+        if: steps.dev-keystore-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storepass android \
+            -alias androiddebugkey \
+            -keypass android \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname "CN=Reality Czech Development,OU=Development,O=Reality Czech,C=US"
+
+      - name: Report signing certificate
+        run: keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | grep -E "Alias name|SHA256:"
+
       - name: Set up Gradle 8.11.1
         uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
         with:
