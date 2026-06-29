@@ -109,4 +109,21 @@ class CourseModelsTest {
         assertTrue(video.isEmbeddedVideo)
         assertFalse(lessonPage.isEmbeddedVideo)
     }
+
+    @Test
+    fun assetAudioResourceIsRecognizedAsEmbeddedAudio() {
+        val audio = LearningResource(
+            title = "led",
+            kind = "recorded pronunciation",
+            url = "https://example.com/source",
+            provider = "asset-audio",
+            mediaId = "u1-5-audio-led",
+            assetPath = "media/audio/u1-5-led.mp3",
+            fallbackText = "led",
+        )
+        val missingAssetPath = audio.copy(assetPath = "")
+
+        assertTrue(audio.isEmbeddedAudio)
+        assertFalse(missingAssetPath.isEmbeddedAudio)
+    }
 }

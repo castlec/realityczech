@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate the modular Reality Czech course assets."""
+"""Validate the modular Reality Czech course and generated media assets."""
 
 from __future__ import annotations
 
@@ -13,11 +13,14 @@ ROOT = Path(__file__).resolve().parents[1]
 COURSE_DIR = ROOT / "app/src/main/assets/course"
 INDEX_FILE = COURSE_DIR / "index.json"
 LESSON_DIR = COURSE_DIR / "lessons"
+MEDIA_ROOT = ROOT / "app/src/main/assets/media"
+MEDIA_CATALOG_FILE = MEDIA_ROOT / "catalog.json"
 SUPPORTED_EXERCISES = {"multiple_choice", "text_entry", "listen_select", "listen_type"}
 CHOICE_EXERCISES = {"multiple_choice", "listen_select"}
 TEXT_EXERCISES = {"text_entry", "listen_type"}
 LISTENING_EXERCISES = {"listen_select", "listen_type"}
 YOUTUBE_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
+PRONUNCIATION_IMAGE_KIND = "pronunciation image"
 
 
 def fail(message: str) -> None:
@@ -43,6 +46,28 @@ def valid_url(value: object) -> bool:
 
 def main() -> None:
     index = read_json(INDEX_FILE)
+    media_catalog = read_json(MEDIA_CATALOG_FILE)
+    catalog_assets = media_catalog.get("assets")
+    if not isinstance(catalog_assets, list) or not catalog_assets:
+        fail("generated media catalog has no assets")
+
+    bundled_source_urls = {
+        item.get("sourceUrl")
+        for item in catalog_assets
+        if item.get("delivery") == "bundle" and item.get("sourceUrl")
+    }
+    bundled_asset_paths = {
+        f"media/{item.get('localPath')}"
+        for item in catalog_assets
+        if item.get("delivery") == "bundle" and item.get("localPath")
+    }
+
+    for item in catalog_assets:
+        if item.get("delivery") == "bundle":
+            local_path = item.get("localPath")
+            if not local_path or not (MEDIA_ROOT / local_path).is_file():
+                fail(f"catalog references missing bundled media: {local_path!r}")
+
     units = index.get("units")
     if not isinstance(units, list) or not units:
         fail("at least one unit is required")
@@ -54,6 +79,8 @@ def main() -> None:
     exercise_count = 0
     listening_exercise_count = 0
     embedded_video_count = 0
+    embedded_audio_count = 0
+    bundled_image_reference_count = 0
 
     for unit in units:
         unit_id = unit.get("id")
@@ -92,17 +119,44 @@ def main() -> None:
             for resource in lesson.get("resources", []):
                 if not resource.get("title") or not valid_url(resource.get("url")):
                     fail(f"lesson {lesson_id!r} has an invalid resource")
+
                 provider = resource.get("provider", "")
                 media_id = resource.get("mediaId", "")
-                if provider or media_id:
-                    if provider != "youtube":
-                        fail(f"lesson {lesson_id!r} has unsupported media provider {provider!r}")
+                if provider == "youtube":
                     if not isinstance(media_id, str) or not YOUTUBE_ID.fullmatch(media_id):
                         fail(f"lesson {lesson_id!r} has invalid YouTube mediaId {media_id!r}")
                     if media_id in media_ids:
                         fail(f"lesson {lesson_id!r} repeats mediaId {media_id!r}")
                     media_ids.add(media_id)
                     embedded_video_count += 1
+                elif provider == "asset-audio":
+                    asset_path = resource.get("assetPath")
+                    if not isinstance(asset_path, str) or asset_path not in bundled_asset_paths:
+                        fail(
+                            f"lesson {lesson_id!r} references undeclared bundled audio {asset_path!r}"
+                        )
+                    if not (ROOT / "app/src/main/assets" / asset_path).is_file():
+                        fail(f"lesson {lesson_id!r} bundled audio is missing: {asset_path}")
+                    if not resource.get("fallbackText"):
+                        fail(f"lesson {lesson_id!r} audio lacks TTS fallback text")
+                    embedded_audio_count += 1
+                elif provider or media_id:
+                    fail(f"lesson {lesson_id!r} has unsupported media provider {provider!r}")
+
+                if resource.get("kind") == PRONUNCIATION_IMAGE_KIND:
+                    source_url = resource.get("url")
+                    if source_url not in bundled_source_urls:
+                        fail(
+                            f"lesson {lesson_id!r} pronunciation image is not in media manifest: "
+                            f"{source_url}"
+                        )
+                    filename_from_url = source_url.rsplit("/", 1)[-1].split("?", 1)[0]
+                    if not (MEDIA_ROOT / "images" / filename_from_url).is_file():
+                        fail(
+                            f"lesson {lesson_id!r} pronunciation image was not embedded: "
+                            f"{filename_from_url}"
+                        )
+                    bundled_image_reference_count += 1
 
             for line in lesson.get("transcript", []):
                 media_id = line.get("mediaId", "")
@@ -140,7 +194,8 @@ def main() -> None:
     print(
         f"validated {len(unit_ids)} unit(s), {lesson_count} lesson(s), "
         f"{exercise_count} exercise(s), {listening_exercise_count} listening exercise(s), "
-        f"and {embedded_video_count} embedded video(s)"
+        f"{embedded_video_count} embedded video(s), {embedded_audio_count} bundled recording(s), "
+        f"and {bundled_image_reference_count} bundled lesson-image reference(s)"
     )
 
 

@@ -18,14 +18,28 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v6
 
+      - name: Pull and validate declared media
+        run: python3 tools/sync_media.py
+
+      - name: Verify reviewed media checksums
+        run: python3 tools/verify_media_checksums.py
+
+      - name: Upload media sync report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: media-sync-report
+          path: media/sync-report.json
+          if-no-files-found: error
+
+      - name: Validate structured course content
+        run: python3 tools/validate_course.py
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
-
-      - name: Validate structured course content
-        run: python3 tools/validate_course.py
 
       - name: Set up Gradle 8.11.1
         uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2

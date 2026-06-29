@@ -1,0 +1,104 @@
+{
+  "id": "u1-5-voicing",
+  "day": "1.5 — 5. den",
+  "title": "Voiced and voiceless consonants",
+  "summary": "Use original human recordings to hear final devoicing and voicing changes in Czech consonant clusters.",
+  "estimatedMinutes": 18,
+  "objectives": [
+    "Distinguish voiced and voiceless consonant pairs",
+    "Recognize final devoicing",
+    "Recognize voicing assimilation in consonant clusters",
+    "Use TTS only as a fallback when a recording cannot play"
+  ],
+  "sections": [
+    {
+      "heading": "Voiced and voiceless pairs",
+      "body": "Czech uses the pairs b–p, v–f, d–t, z–s, ď–ť, ž–š, g–k, and h–ch.",
+      "examples": ["b–p", "v–f", "d–t", "z–s", "ď–ť", "ž–š", "g–k", "h–ch"]
+    },
+    {
+      "heading": "Final devoicing",
+      "body": "A voiced consonant at the end of a Czech word is normally pronounced as its voiceless partner.",
+      "examples": ["led → [let]", "muž → [muš]", "hrad → [hrat]", "hrob → [hrop]"]
+    },
+    {
+      "heading": "Consonant clusters",
+      "body": "Within a cluster, consonants commonly assimilate to the voicing of the final consonant in that cluster.",
+      "examples": ["četba → [čedba]", "vtip → [ftip]", "všední → [fšední]", "sdělit → [zdělit]"]
+    }
+  ],
+  "vocabulary": [
+    {"czech": "led", "english": "ice", "note": "Final d is pronounced like t."},
+    {"czech": "muž", "english": "man", "note": "Final ž is pronounced like š."},
+    {"czech": "četba", "english": "reading", "note": "The cluster changes voicing in normal pronunciation."},
+    {"czech": "vtip", "english": "joke", "note": "Initial v is pronounced like f before the following voiceless consonants."}
+  ],
+  "resources": [
+    {
+      "title": "led",
+      "kind": "recorded pronunciation",
+      "url": "https://realityczech.org/pronunciation-voiced-and-voiceless-consonants/",
+      "note": "Original human recording linked by Reality Czech.",
+      "provider": "asset-audio",
+      "mediaId": "u1-5-audio-led",
+      "assetPath": "media/audio/u1-5-led.mp3",
+      "fallbackText": "led"
+    },
+    {
+      "title": "muž",
+      "kind": "recorded pronunciation",
+      "url": "https://realityczech.org/pronunciation-voiced-and-voiceless-consonants/",
+      "note": "Original human recording linked by Reality Czech.",
+      "provider": "asset-audio",
+      "mediaId": "u1-5-audio-muž",
+      "assetPath": "media/audio/u1-5-muž.mp3",
+      "fallbackText": "muž"
+    },
+    {
+      "title": "četba",
+      "kind": "recorded pronunciation",
+      "url": "https://realityczech.org/pronunciation-voiced-and-voiceless-consonants/",
+      "note": "Original human recording linked by Reality Czech.",
+      "provider": "asset-audio",
+      "mediaId": "u1-5-audio-četba",
+      "assetPath": "media/audio/u1-5-četba.mp3",
+      "fallbackText": "četba"
+    },
+    {
+      "title": "vtip",
+      "kind": "recorded pronunciation",
+      "url": "https://realityczech.org/pronunciation-voiced-and-voiceless-consonants/",
+      "note": "Original human recording linked by Reality Czech.",
+      "provider": "asset-audio",
+      "mediaId": "u1-5-audio-vtip",
+      "assetPath": "media/audio/u1-5-vtip.mp3",
+      "fallbackText": "vtip"
+    }
+  ],
+  "exercises": [
+    {
+      "type": "multiple_choice",
+      "prompt": "How is the final consonant in led normally pronounced?",
+      "choices": ["As d", "As t", "As z", "It is silent"],
+      "correctIndex": 1,
+      "explanation": "Final voiced d is devoiced to t."
+    },
+    {
+      "type": "listen_select",
+      "prompt": "Listen to the synthesized fallback and choose the spelling.",
+      "spokenText": "muž",
+      "choices": ["muš", "muž", "mus"],
+      "correctIndex": 1,
+      "explanation": "The spelling is muž. Use the human recording above as the primary pronunciation model."
+    },
+    {
+      "type": "text_entry",
+      "prompt": "Type the Czech word for joke.",
+      "acceptedAnswers": ["vtip"],
+      "explanation": "The word is vtip."
+    }
+  ],
+  "sourceUrl": "https://realityczech.org/pronunciation-voiced-and-voiceless-consonants/",
+  "sourceAttribution": "Reality Czech, Christian Hilchey, COERLL; original recording credits retained on the source page",
+  "contentLicense": "CC BY-SA 3.0"
+}

@@ -2,12 +2,12 @@
   "title": "Reality Czech",
   "description": "A native, offline-first adaptation following Reality Czech Unit 1 in its original 1.1–1.11 instructional sequence.",
   "sourceUrl": "https://realityczech.org/unit-1/",
-  "license": "Adapted from Reality Czech by Christian Hilchey and COERLL. Curriculum adaptations are distributed under CC BY-SA where that license applies. Linked third-party media remains on its original host and retains its own license.",
+  "license": "Adapted from Reality Czech by Christian Hilchey and COERLL under CC BY-SA 3.0. Original attribution metadata is retained in the checked-in media manifest.",
   "units": [
     {
       "id": "unit-1",
       "title": "1. lekce — Vítejte! / Welcome to Czech",
-      "description": "Days 1.1–1.3: pronunciation, greetings, identifying people and things, names, být, and noun gender.",
+      "description": "Converted material from days 1.1–1.3 plus the real-speaker pronunciation material from day 1.5.",
       "lessonFiles": [
         "u1-1-vowels.json",
         "u1-1-consonants.json",
@@ -17,7 +17,8 @@
         "u1-2-names.json",
         "u1-2-who-and-name.json",
         "u1-3-byt.json",
-        "u1-3-gender.json"
+        "u1-3-gender.json",
+        "u1-5-voicing.json"
       ]
     }
   ]
