@@ -6,7 +6,10 @@ import kotlinx.serialization.json.Json
 import org.realityczech.app.model.Course
 import org.realityczech.app.model.CourseIndex
 import org.realityczech.app.model.CourseUnit
+import org.realityczech.app.model.LearningResource
 import org.realityczech.app.model.Lesson
+import org.realityczech.app.model.MediaCatalog
+import org.realityczech.app.model.MediaCatalogAsset
 
 class CourseRepository(private val context: Context) {
     private val json = Json {
@@ -16,13 +19,16 @@ class CourseRepository(private val context: Context) {
 
     fun load(): Course {
         val index = readJson<CourseIndex>(COURSE_INDEX_ASSET)
+        val mediaCatalog = readJson<MediaCatalog>(MEDIA_CATALOG_ASSET)
+        val audioByLesson = generatedAudioByLesson(mediaCatalog)
         val units = index.units.map { unit ->
             CourseUnit(
                 id = unit.id,
                 title = unit.title,
                 description = unit.description,
                 lessons = unit.lessonFiles.map { filename ->
-                    readJson<Lesson>("$LESSON_DIRECTORY/$filename")
+                    val lesson = readJson<Lesson>("$LESSON_DIRECTORY/$filename")
+                    lesson.withGeneratedAudio(audioByLesson[lesson.id].orEmpty())
                 },
             )
         }
@@ -36,6 +42,41 @@ class CourseRepository(private val context: Context) {
         )
     }
 
+    private fun generatedAudioByLesson(
+        catalog: MediaCatalog,
+    ): Map<String, List<MediaCatalogAsset>> = catalog.assets
+        .asSequence()
+        .filter(MediaCatalogAsset::isBundledAudio)
+        .flatMap { asset -> asset.applicableLessonIds.asSequence().map { lessonId -> lessonId to asset } }
+        .groupBy(keySelector = { it.first }, valueTransform = { it.second })
+
+    private fun Lesson.withGeneratedAudio(assets: List<MediaCatalogAsset>): Lesson {
+        if (assets.isEmpty()) return this
+        val existingPaths = resources.map(LearningResource::assetPath).filter(String::isNotBlank).toSet()
+        val generated = assets
+            .asSequence()
+            .filterNot { "media/${it.localPath}" in existingPaths }
+            .sortedWith(compareBy<MediaCatalogAsset> { it.label.lowercase() }.thenBy { it.id })
+            .map { asset ->
+                LearningResource(
+                    title = asset.label,
+                    kind = "audio",
+                    url = asset.sourcePage.ifBlank { asset.sourceUrl },
+                    note = if (asset.speaker.isBlank()) {
+                        "Human recording. The source filename does not identify the speaker."
+                    } else {
+                        "Human recording by ${asset.speaker}."
+                    },
+                    provider = LearningResource.ASSET_AUDIO_PROVIDER,
+                    assetPath = "media/${asset.localPath}",
+                    fallbackText = asset.fallbackText.ifBlank { asset.label },
+                    attribution = asset.attribution,
+                )
+            }
+            .toList()
+        return copy(resources = resources + generated)
+    }
+
     private inline fun <reified T> readJson(path: String): T {
         val raw = context.assets.open(path).bufferedReader().use { it.readText() }
         return json.decodeFromString(raw)
@@ -44,5 +85,6 @@ class CourseRepository(private val context: Context) {
     companion object {
         private const val COURSE_INDEX_ASSET = "course/index.json"
         private const val LESSON_DIRECTORY = "course/lessons"
+        private const val MEDIA_CATALOG_ASSET = "media/catalog.json"
     }
 }
