@@ -11,6 +11,17 @@ from .unit1 import SEED
 from .web import FIRST_PARTY_HOSTS
 
 CRITICAL_HOSTS = FIRST_PARTY_HOSTS | {"docs.google.com", "drive.google.com"}
+OBSOLETE_CROSS_REFERENCE = (
+    "https://docs.google.com/document/d/e/"
+    "2PACX-1vS46stE4LR7JIntCR0grGDXKpM33WinQ3YBUBRzQsQ497t71YL7uLFPN88zhaH08OhhZyRBtfduo4z9/pub"
+)
+
+
+def is_warning(item: dict[str, Any]) -> bool:
+    return (
+        item.get("url") == OBSOLETE_CROSS_REFERENCE
+        and "410" in str(item.get("error", ""))
+    )
 
 
 def finalize(
@@ -25,7 +36,10 @@ def finalize(
     locations = state["locations"]
     vendor_assets = write_vendor_archive(archive_path, repository_root, documents, SEED)
 
-    unresolved: list[dict[str, Any]] = list(state["errors"])
+    warnings = [item for item in state["errors"] if is_warning(item)]
+    unresolved: list[dict[str, Any]] = [
+        item for item in state["errors"] if not is_warning(item)
+    ]
     for page in pages:
         attribution = page.get("attribution", {})
         if not attribution.get("text") and not attribution.get("links"):
@@ -54,10 +68,12 @@ def finalize(
         "tocLinks": len(state["toc"]),
         "firstPartyPages": len(pages),
         "externalCourseLinks": len(state["external"]),
+        "publishedDocuments": len(state.get("publishedDocuments", [])),
         "googleDocuments": len(documents),
         "documentMediaOccurrences": sum(len(doc["extractedMedia"]) for doc in documents),
         "uniqueDocumentMedia": len(vendor_assets),
         "mediaLocations": len(locations),
+        "warnings": len(warnings),
         "unresolved": len(unresolved),
     }
     report = {
@@ -71,10 +87,12 @@ def finalize(
         "counts": counts,
         "pages": sorted(pages, key=lambda item: item["url"]),
         "externalCourseLinks": sorted(state["external"], key=lambda item: item["url"]),
+        "publishedDocuments": state.get("publishedDocuments", []),
         "documents": documents,
         "mediaLocations": sorted(locations.values(), key=lambda item: item["url"]),
         "documentVendorArchive": str(archive_path.relative_to(repository_root)),
         "documentVendorAssets": vendor_assets,
+        "warnings": warnings,
         "unresolved": unresolved,
     }
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -87,6 +105,11 @@ def finalize(
         json.dumps(unresolved, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
     )
+    for warning in warnings:
+        print(
+            f"WARNING {warning.get('url', '<unknown>')}: {warning.get('error', warning)}",
+            file=sys.stderr,
+        )
     for issue in unresolved:
         print(
             f"UNRESOLVED {issue.get('url', '<unknown>')}: {issue.get('error', issue)}",
