@@ -92,4 +92,22 @@ def finalize(
             f"UNRESOLVED {issue.get('url', '<unknown>')}: {issue.get('error', issue)}",
             file=sys.stderr,
         )
+    if unresolved:
+        bridge_report = {
+            "status": "failed",
+            "assetCount": 0,
+            "bundledCount": 0,
+            "streamCount": 0,
+            "results": [],
+            "errors": [
+                f"{item.get('url', '<unknown>')}: {item.get('error', item)}"
+                for item in unresolved
+            ],
+            "unit1Discovery": report,
+        }
+        (repository_root / "media/sync-report.json").write_text(
+            json.dumps(bridge_report, ensure_ascii=False, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        raise SystemExit(1)
     return report
