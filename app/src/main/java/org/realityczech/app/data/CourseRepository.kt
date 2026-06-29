@@ -87,21 +87,33 @@ class CourseRepository(private val context: Context) {
     private fun Lesson.withDocumentImages(assets: List<MediaCatalogAsset>): Lesson {
         if (assets.isEmpty()) return this
         val generated = assets
-            .sortedBy { it.id }
-            .mapIndexed { index, asset ->
+            .sortedWith(
+                compareBy<MediaCatalogAsset> { it.sourceOrder ?: Int.MAX_VALUE }
+                    .thenBy { it.label.lowercase() }
+                    .thenBy { it.id },
+            )
+            .map { asset ->
                 val inheritedNote = if (asset.attributionInherited) {
-                    " Site-level Reality Czech attribution applies because the document contains no narrower credit."
+                    "Site-level Reality Czech attribution applies because the document contains no narrower credit."
                 } else {
                     ""
                 }
+                val note = listOf(asset.contextText, inheritedNote)
+                    .filter { it.isNotBlank() }
+                    .joinToString("\n")
                 LearningResource(
-                    title = "Source image ${index + 1}",
+                    title = asset.label.ifBlank { "Source illustration" },
                     kind = "source document image",
                     url = asset.sourcePage.ifBlank { asset.sourceUrl },
-                    note = "Extracted from the original lesson document.$inheritedNote",
+                    note = note,
                     provider = LearningResource.VENDOR_IMAGE_PROVIDER,
                     assetPath = "media/${asset.localPath}",
                     attribution = asset.attribution,
+                    semanticRole = asset.semanticRole,
+                    placementHeading = asset.placementHeading,
+                    caption = asset.caption,
+                    contextText = asset.contextText,
+                    sourceOrder = asset.sourceOrder,
                 )
             }
         return copy(resources = resources + generated)
