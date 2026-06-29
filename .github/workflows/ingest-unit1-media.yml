@@ -52,6 +52,7 @@ jobs:
           fi
 
       - name: Open or update ingestion pull request
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ github.token }}
           TARGET_BRANCH: ${{ inputs.target_branch || github.ref_name }}
