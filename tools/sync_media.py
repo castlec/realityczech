@@ -35,6 +35,10 @@ UNIT1_UNRESOLVED_PATH = ROOT / "media/discovery/unit1-unresolved.json"
 UNIT1_VENDOR_ARCHIVE = ROOT / "media/vendor/unit1-document-media.zip"
 USER_AGENT = "RealityCzechAndroidMediaSync/1.0 (+https://github.com/castlec/realityczech)"
 MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024
+DEFAULT_ATTRIBUTION = (
+    "Reality Czech by Christian Hilchey and COERLL; CC BY-SA 3.0. "
+    "Third-party streamed media remains with its original provider."
+)
 CATALOG_FIELDS = (
     "id",
     "kind",
@@ -61,6 +65,16 @@ def read_json(path: Path) -> dict[str, Any]:
         raise MediaError(f"missing manifest: {path.relative_to(ROOT)}") from exc
     except json.JSONDecodeError as exc:
         raise MediaError(f"invalid JSON in {path.relative_to(ROOT)}: {exc}") from exc
+
+
+def normalize_asset(asset: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(asset)
+    lesson_id = normalized.get("lessonId", "")
+    source_page = normalized.get("sourcePage", "")
+    normalized.setdefault("lessonIds", [lesson_id] if lesson_id else [])
+    normalized.setdefault("sourcePages", [source_page] if source_page else [])
+    normalized.setdefault("attribution", DEFAULT_ATTRIBUTION)
+    return normalized
 
 
 def expand_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
@@ -102,14 +116,11 @@ def expand_manifest(document: dict[str, Any]) -> list[dict[str, Any]]:
                     "localPath": group["localPathTemplate"].format(**values),
                     "expectedContentTypes": group.get("expectedContentTypes", ["image/"]),
                     "minBytes": group.get("minBytes", 1),
-                    "attribution": group.get(
-                        "attribution",
-                        "Reality Czech; CC BY-SA 3.0",
-                    ),
+                    "attribution": group.get("attribution", DEFAULT_ATTRIBUTION),
                 }
             )
 
-    expanded.extend(document.get("assets", []))
+    expanded.extend(normalize_asset(asset) for asset in document.get("assets", []))
     try:
         expanded.extend(expand_unit1_audio(ROOT))
     except Unit1AudioError as exc:
