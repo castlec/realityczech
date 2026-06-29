@@ -24,12 +24,16 @@ jobs:
       - name: Verify reviewed media checksums
         run: python3 tools/verify_media_checksums.py
 
-      - name: Upload media sync report
+      - name: Upload media inventory
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: media-sync-report
-          path: media/sync-report.json
+          path: |
+            media/sync-report.json
+            media/discovery/unit1-report.json
+            media/discovery/unit1-unresolved.json
+            media/vendor/unit1-document-media.zip
           if-no-files-found: error
 
       - name: Validate structured course content
