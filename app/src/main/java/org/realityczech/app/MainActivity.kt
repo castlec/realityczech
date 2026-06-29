@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import org.realityczech.app.data.CourseRepository
 import org.realityczech.app.data.ProgressStore
+import org.realityczech.app.ui.CzechSpeechProvider
 import org.realityczech.app.ui.RealityCzechApp
 import org.realityczech.app.ui.theme.RealityCzechTheme
 
@@ -17,7 +18,9 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             RealityCzechTheme {
-                RealityCzechApp(course = course, progressStore = progressStore)
+                CzechSpeechProvider {
+                    RealityCzechApp(course = course, progressStore = progressStore)
+                }
             }
         }
     }

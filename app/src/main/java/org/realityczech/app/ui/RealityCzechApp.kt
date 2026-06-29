@@ -220,6 +220,10 @@ private fun LessonScreen(
 
         if (lesson.vocabulary.isNotEmpty()) {
             Text("Vocabulary", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text(
+                "Play and Slow use your Android device's Czech speech voice.",
+                style = MaterialTheme.typography.bodySmall,
+            )
             lesson.vocabulary.forEach { item -> VocabularyRow(item) }
         }
 
@@ -245,13 +249,17 @@ private fun LessonScreen(
 
 @Composable
 private fun VocabularyRow(item: VocabularyItem) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(item.czech, fontWeight = FontWeight.Bold)
             Text(item.english)
         }
         if (item.note.isNotBlank()) Text(item.note, style = MaterialTheme.typography.bodySmall)
-        HorizontalDivider(Modifier.padding(top = 6.dp))
+        CzechSpeakControls(text = item.czech)
+        HorizontalDivider(Modifier.padding(top = 4.dp))
     }
 }
 
@@ -260,6 +268,8 @@ private fun ExerciseCard(number: Int, exercise: Exercise) {
     when (exercise.type) {
         Exercise.MULTIPLE_CHOICE -> MultipleChoiceExercise(number, exercise)
         Exercise.TEXT_ENTRY -> TextEntryExercise(number, exercise)
+        Exercise.LISTEN_SELECT -> ListeningChoiceExercise(number, exercise)
+        Exercise.LISTEN_TYPE -> ListeningTextExercise(number, exercise)
     }
 }
 
@@ -356,7 +366,9 @@ private fun ReviewScreen(vocabulary: List<VocabularyItem>) {
                 )
             }
         }
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(12.dp))
+        CzechSpeakControls(text = item.czech)
+        Spacer(Modifier.height(8.dp))
         Text("Tap the card to reveal the meaning.")
         Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -385,7 +397,9 @@ private fun AboutScreen(course: Course) {
     ) {
         Text("About this app", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text("This is an independent, offline-first Android adaptation of the Reality Czech open educational curriculum.")
-        Text("Current status: Unit 1 days 1.1–1.3 are included, with original interview videos now available inside relevant lessons.")
+        Text("Current status: Unit 1 days 1.1–1.3 include original interview video, device-generated Czech pronunciation, vocabulary playback, and listening practice.")
+        Text("Speech note", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Vocabulary and listening-exercise audio is synthesized by the Czech voice installed on the Android device. It is not an original Reality Czech recording.")
         Text("Content license", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(course.license)
         Button(onClick = { uriHandler.openUri(course.sourceUrl) }) { Text("Open Reality Czech") }

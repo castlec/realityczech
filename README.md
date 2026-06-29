@@ -22,15 +22,16 @@ The app provides:
 - explanations, examples, vocabulary, and usage notes;
 - multiple-choice and typed-answer exercises with immediate feedback;
 - four Reality Czech interview videos streamed through an in-app YouTube player;
-- selectable video controls for lessons containing several clips;
-- transcript show/hide controls beside the related video;
-- transcript metadata prepared for future tap-to-seek timing;
-- links back to the original Reality Czech lesson and video pages;
+- selectable video controls and transcript show/hide controls;
+- Czech pronunciation playback for every vocabulary item and review card;
+- normal and slow playback through the Android device speech service;
+- listening-selection and listening-dictation exercise types;
+- six initial listening exercises in the pronunciation lessons;
+- links back to the original Reality Czech pages;
 - per-lesson source attribution and licensing metadata;
-- a vocabulary review deck;
-- GitHub Actions CI that validates course data, runs tests and lint, builds a debug APK, and uploads it as an artifact.
+- GitHub Actions CI that validates content, tests, lints, builds, and uploads a debug APK.
 
-Days 1.4–1.11 and Units 2–10 remain to be converted. Pronunciation audio and source images are not yet bundled; their item-level rights and credits must be mapped first.
+Days 1.4–1.11 and Units 2–10 remain to be converted. Original source pronunciation recordings and lesson images are not yet bundled because their direct files and item-level credits still need to be mapped.
 
 ## Build
 
@@ -54,19 +55,21 @@ Every pull request and push to `main` runs `.github/workflows/android.yml`. A su
 
 Course metadata is stored in `app/src/main/assets/course/index.json`. Lessons are independent JSON files under `app/src/main/assets/course/lessons/`.
 
-This structure keeps source attribution and curriculum content separate from the Android UI. Individual lessons can be added, reviewed, corrected, and tested without rewriting one large course file.
+This structure keeps source attribution and curriculum content separate from the Android UI. Individual lessons can be added, reviewed, corrected, and tested independently.
 
-`tools/validate_course.py` checks lesson IDs, source URLs, resource links, media providers and IDs, transcript-to-media references, licensing fields, supported exercise types, answer definitions, and whether every lesson file appears in the course index.
+`tools/validate_course.py` checks lesson IDs, source URLs, resource links, media IDs, transcript references, licensing fields, exercise types, spoken prompts, answer definitions, and course-index coverage.
 
 ## Media architecture
 
-Interview videos are not copied into the repository or APK. The app uses the official YouTube IFrame player inside an Android `WebView`, while Reality Czech remains the linked source page for annotations and attribution.
+Interview videos are not copied into the repository or APK. They use the official YouTube IFrame player inside an Android `WebView`, while Reality Czech remains the linked source page for annotations and attribution.
 
-Lesson resources declare a media provider and stable media ID. Transcript lines can declare the matching media ID and an optional start time, allowing future tap-to-replay behavior without changing the lesson file format.
+Vocabulary pronunciation and listening exercises currently use Android `TextToSpeech` with the Czech (`cs-CZ`) locale. One shared engine is used for the app session. Playback controls are disabled when Czech voice data is unavailable.
+
+The synthesized speech is supplemental practice and is clearly distinguished from original Reality Czech recordings.
 
 ## Licensing
 
-Reality Czech identifies its curriculum as openly licensed. Adapted content must retain attribution and share-alike treatment where CC BY-SA applies. Linked or embedded third-party images, recordings, videos, and adapted texts may carry separate licenses; each imported item must preserve its own attribution metadata.
+Reality Czech identifies its curriculum as openly licensed. Adapted content must retain attribution and share-alike treatment where CC BY-SA applies. Third-party images, recordings, videos, and texts may carry separate licenses; each imported item must preserve its own attribution metadata.
 
 Original videos remain streamed from their provider rather than downloaded into the APK.
 

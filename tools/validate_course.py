@@ -13,7 +13,10 @@ ROOT = Path(__file__).resolve().parents[1]
 COURSE_DIR = ROOT / "app/src/main/assets/course"
 INDEX_FILE = COURSE_DIR / "index.json"
 LESSON_DIR = COURSE_DIR / "lessons"
-SUPPORTED_EXERCISES = {"multiple_choice", "text_entry"}
+SUPPORTED_EXERCISES = {"multiple_choice", "text_entry", "listen_select", "listen_type"}
+CHOICE_EXERCISES = {"multiple_choice", "listen_select"}
+TEXT_EXERCISES = {"text_entry", "listen_type"}
+LISTENING_EXERCISES = {"listen_select", "listen_type"}
 YOUTUBE_ID = re.compile(r"^[A-Za-z0-9_-]{11}$")
 
 
@@ -49,6 +52,7 @@ def main() -> None:
     lesson_files_seen: set[str] = set()
     lesson_count = 0
     exercise_count = 0
+    listening_exercise_count = 0
     embedded_video_count = 0
 
     for unit in units:
@@ -115,15 +119,19 @@ def main() -> None:
                     fail(f"lesson {lesson_id!r} has unsupported exercise type {exercise_type!r}")
                 if not exercise.get("prompt") or not exercise.get("explanation"):
                     fail(f"lesson {lesson_id!r} has an incomplete exercise")
-                if exercise_type == "multiple_choice":
+                if exercise_type in CHOICE_EXERCISES:
                     choices = exercise.get("choices", [])
                     correct = exercise.get("correctIndex")
                     if not choices:
-                        fail(f"lesson {lesson_id!r} has multiple choice without choices")
+                        fail(f"lesson {lesson_id!r} has choice exercise without choices")
                     if not isinstance(correct, int) or not 0 <= correct < len(choices):
                         fail(f"lesson {lesson_id!r} has an invalid correctIndex")
-                if exercise_type == "text_entry" and not exercise.get("acceptedAnswers"):
-                    fail(f"lesson {lesson_id!r} has text entry without acceptedAnswers")
+                if exercise_type in TEXT_EXERCISES and not exercise.get("acceptedAnswers"):
+                    fail(f"lesson {lesson_id!r} has text exercise without acceptedAnswers")
+                if exercise_type in LISTENING_EXERCISES:
+                    listening_exercise_count += 1
+                    if not exercise.get("spokenText"):
+                        fail(f"lesson {lesson_id!r} has listening exercise without spokenText")
 
     unlisted = {path.name for path in LESSON_DIR.glob("*.json")} - lesson_files_seen
     if unlisted:
@@ -131,7 +139,8 @@ def main() -> None:
 
     print(
         f"validated {len(unit_ids)} unit(s), {lesson_count} lesson(s), "
-        f"{exercise_count} exercise(s), and {embedded_video_count} embedded video(s)"
+        f"{exercise_count} exercise(s), {listening_exercise_count} listening exercise(s), "
+        f"and {embedded_video_count} embedded video(s)"
     )
 
 
