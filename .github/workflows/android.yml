@@ -5,6 +5,8 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"
 
 permissions:
   contents: read
@@ -52,30 +54,39 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: Restore stable debug signing key
+      - name: Restore stable development signing key
         id: dev-keystore-cache
         uses: actions/cache@v4
         with:
           path: ~/.android/debug.keystore
           key: reality-czech-main-debug-keystore-v1
 
-      - name: Create debug signing key
-        if: steps.dev-keystore-cache.outputs.cache-hit != 'true'
+      - name: Require stable development signing key
         shell: bash
         run: |
-          mkdir -p "$HOME/.android"
-          keytool -genkeypair \
+          set -euo pipefail
+          if [ ! -s "$HOME/.android/debug.keystore" ]; then
+            echo "The stable development signing key was not restored. Refusing to create an incompatible APK." >&2
+            exit 1
+          fi
+
+      - name: Verify signing certificate
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="6b16f324139ef66446f8462e029c17c7c5071668a5f4486122d5d741ebabe5d9"
+          actual="$(keytool -list -v \
             -keystore "$HOME/.android/debug.keystore" \
             -storepass android \
             -alias androiddebugkey \
-            -keypass android \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname "CN=Reality Czech Development,OU=Development,O=Reality Czech,C=US"
-
-      - name: Report signing certificate
-        run: keytool -list -v -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey | grep -E "Alias name|SHA256:"
+            | awk '/SHA256:/{print $2; exit}' \
+            | tr -d ':' \
+            | tr '[:upper:]' '[:lower:]')"
+          printf 'certificate-sha256=%s\n' "$actual" | tee signing-certificate.txt
+          if [ "$actual" != "$expected" ]; then
+            echo "Signing certificate mismatch. Expected $expected, got $actual" >&2
+            exit 1
+          fi
 
       - name: Set up Gradle 8.11.1
         uses: gradle/actions/setup-gradle@017a9effdb900e5b5b2fddfb590a105619dca3c3 # v4.4.2
@@ -87,6 +98,7 @@ jobs:
         run: |
           set -o pipefail
           gradle testDebugUnitTest lintDebug assembleDebug --stacktrace --console=plain 2>&1 | tee gradle-build.log
+          sha256sum app/build/outputs/apk/debug/app-debug.apk > app/build/outputs/apk/debug/app-debug.apk.sha256
 
       - name: Upload Gradle build log
         if: always()
@@ -100,7 +112,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: reality-czech-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/debug/app-debug.apk.sha256
+            signing-certificate.txt
           if-no-files-found: error
 
       - name: Upload lint report
