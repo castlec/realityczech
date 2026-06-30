@@ -25,7 +25,7 @@ jobs:
           set -euo pipefail
           for value in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
             if [ -z "${!value:-}" ]; then
-              echo "Missing required repository secret: REALITY_CZECH_${value}" >&2
+              echo "Missing required repository signing secret." >&2
               exit 1
             fi
           done
@@ -36,6 +36,26 @@ jobs:
         run: |
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/reality-czech-release.jks"
           test -s "$RUNNER_TEMP/reality-czech-release.jks"
+
+      - name: Verify release certificate
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.REALITY_CZECH_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.REALITY_CZECH_KEY_ALIAS }}
+        run: |
+          set -euo pipefail
+          expected="e73c584f49facd03fb99507a5795a3c5850c4f01c3d1fe26766566151768b927"
+          actual="$(keytool -list -v \
+            -keystore "$RUNNER_TEMP/reality-czech-release.jks" \
+            -storepass "$KEYSTORE_PASSWORD" \
+            -alias "$KEY_ALIAS" \
+            | awk '/SHA256:/{print $2; exit}' \
+            | tr -d ':' \
+            | tr '[:upper:]' '[:lower:]')"
+          printf 'certificate-sha256=%s\n' "$actual" | tee release-signing-certificate.txt
+          if [ "$actual" != "$expected" ]; then
+            echo "Release certificate mismatch. Expected $expected, got $actual" >&2
+            exit 1
+          fi
 
       - name: Pull and validate declared URL media
         run: python3 tools/sync_media.py --skip-unit1-discovery
@@ -51,6 +71,9 @@ jobs:
 
       - name: Validate structured course content
         run: python3 tools/validate_course.py
+
+      - name: Validate integrated curriculum and media
+        run: python3 tools/validate_integrated_media.py
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -81,4 +104,5 @@ jobs:
           path: |
             app/build/outputs/apk/release/app-release.apk
             app/build/outputs/apk/release/app-release.apk.sha256
+            release-signing-certificate.txt
           if-no-files-found: error
