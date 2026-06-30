@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import org.realityczech.app.BuildConfig
 import org.realityczech.app.data.ProgressStore
 import org.realityczech.app.model.Course
 import org.realityczech.app.model.Exercise
@@ -396,10 +397,11 @@ private fun AboutScreen(course: Course) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text("About this app", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+        Text("Version ${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
         Text("This is an independent, offline-first Android adaptation of the Reality Czech open educational curriculum.")
-        Text("Current status: Unit 1 days 1.1–1.3 include original interview video, device-generated Czech pronunciation, vocabulary playback, and listening practice.")
+        Text("Current status: Unit 1 days 1.1–1.3 and pronunciation material from 1.5 include original video, bundled human recordings, source-document images, vocabulary playback, and listening practice.")
         Text("Speech note", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("Vocabulary and listening-exercise audio is synthesized by the Czech voice installed on the Android device. It is not an original Reality Czech recording.")
+        Text("Original human recordings are preferred where available. Android Czech speech is clearly labeled and used only as a fallback or for generated exercises.")
         Text("Content license", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Text(course.license)
         Button(onClick = { uriHandler.openUri(course.sourceUrl) }) { Text("Open Reality Czech") }
