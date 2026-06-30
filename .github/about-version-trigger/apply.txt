@@ -1,1 +1,2 @@
 Apply BuildConfig version metadata to the About screen.
+Retry after workflow registration.
